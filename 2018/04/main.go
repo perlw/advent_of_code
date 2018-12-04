@@ -103,6 +103,30 @@ func (p *Puzzle) Solution1() int {
 	return guard * favMinute
 }
 
+func (p *Puzzle) Solution2() int {
+	highestMinute := 0
+	highestMinuteVal := 0
+	guard := 0
+
+	for gid, g := range p.GuardSleep {
+		highMin := 0
+		highMinVal := 0
+		for min, times := range g {
+			if times > highMinVal {
+				highMinVal = times
+				highMin = min
+			}
+		}
+		if highMinVal > highestMinuteVal {
+			highestMinuteVal = highMinVal
+			highestMinute = highMin
+			guard = gid
+		}
+	}
+
+	return guard * highestMinute
+}
+
 func main() {
 	input, err := os.Open("input.txt")
 	if err != nil {
@@ -124,4 +148,5 @@ func main() {
 	p.Finish()
 
 	fmt.Println(p.Solution1())
+	fmt.Println(p.Solution2())
 }
