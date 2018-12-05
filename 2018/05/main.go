@@ -34,7 +34,24 @@ func (p *Puzzle) Solution1() int {
 }
 
 func (p *Puzzle) Solution2() int {
-	return 0
+	shortest := 32000
+	var a, b byte
+	for a = 'A'; a <= 'Z'; a++ {
+		b = a + 32
+
+		buffer := make([]byte, 0, len(p.Chain))
+		for t := 0; t < len(p.Chain); t++ {
+			if p.Chain[t] != a && p.Chain[t] != b {
+				buffer = append(buffer, p.Chain[t])
+			}
+		}
+
+		buffer = reactChain(buffer)
+		if len(buffer) < shortest {
+			shortest = len(buffer)
+		}
+	}
+	return shortest
 }
 
 func main() {
