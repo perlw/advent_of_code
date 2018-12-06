@@ -6,51 +6,109 @@ import (
 	"os"
 )
 
+func findNextNonSpace(buf []byte) int {
+	for t := 0; t < len(buf); t++ {
+		if buf[t] != ' ' {
+			return t
+		}
+	}
+	return -1
+}
+
 func reactChain(chain []byte) []byte {
-	result := make([]byte, 0, len(chain))
-	for t := 0; t < len(chain)-1; t++ {
-		a, b := chain[t], chain[t+1]
+	t := findNextNonSpace(chain)
+	modded := false
+	for {
+		i := t
+		u := findNextNonSpace(chain[t+1:])
+		if u == -1 {
+			break
+		}
+		t += u + 1
+		j := t
+
+		a := chain[i]
+		b := chain[j]
 
 		if a-b == 32 || b-a == 32 {
-			result = append(result, chain[:t]...)
-			result = append(result, chain[t+2:]...)
-			break
+			chain[i] = ' '
+			chain[j] = ' '
+			modded = true
 		}
 	}
 
-	if len(result) == 0 {
+	if !modded {
 		return chain
 	}
 
-	return reactChain(result)
+	return reactChain(chain)
 }
 
 type Puzzle struct {
 	Chain []byte
 }
 
+func countBufLength(buf []byte) int {
+	count := 0
+	t := findNextNonSpace(buf)
+	for {
+		b := findNextNonSpace(buf[t+1:])
+		if b == -1 {
+			if buf[t] != ' ' {
+				count++
+			}
+			break
+		}
+		t += b + 1
+		count++
+	}
+	return count
+}
+
 func (p *Puzzle) Solution1() int {
-	return len(reactChain(p.Chain))
+	buf := make([]byte, len(p.Chain))
+	copy(buf, p.Chain)
+	return countBufLength(reactChain(buf))
 }
 
 func (p *Puzzle) Solution2() int {
-	shortest := 32000
+	done := make(chan int)
 	var a, b byte
 	for a = 'A'; a <= 'Z'; a++ {
 		b = a + 32
 
-		buffer := make([]byte, 0, len(p.Chain))
-		for t := 0; t < len(p.Chain); t++ {
-			if p.Chain[t] != a && p.Chain[t] != b {
-				buffer = append(buffer, p.Chain[t])
-			}
-		}
+		go (func(a, b byte) {
+			buf := make([]byte, len(p.Chain))
+			copy(buf, p.Chain)
+			t := 0
+			for {
+				u := findNextNonSpace(buf[t+1:])
+				if u == -1 {
+					break
+				}
 
-		buffer = reactChain(buffer)
-		if len(buffer) < shortest {
-			shortest = len(buffer)
+				if buf[t] == a || buf[t] == b {
+					buf[t] = ' '
+				}
+
+				t += u + 1
+			}
+
+			length := countBufLength(reactChain(buf))
+			done <- length
+		})(a, b)
+	}
+
+	count := 26
+	shortest := -1
+	for count > 0 {
+		length := <-done
+		count--
+		if shortest == -1 || length < shortest {
+			shortest = length
 		}
 	}
+
 	return shortest
 }
 
