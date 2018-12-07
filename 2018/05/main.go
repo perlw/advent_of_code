@@ -3,8 +3,18 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math"
 	"os"
 )
+
+func findPrevNonSpace(buf []byte) int {
+	for t := len(buf) - 1; t >= 0; t-- {
+		if buf[t] != ' ' {
+			return t
+		}
+	}
+	return -1
+}
 
 func findNextNonSpace(buf []byte) int {
 	for t := 0; t < len(buf); t++ {
@@ -17,7 +27,6 @@ func findNextNonSpace(buf []byte) int {
 
 func reactChain(chain []byte) []byte {
 	t := findNextNonSpace(chain)
-	modded := false
 	for {
 		i := t
 		u := findNextNonSpace(chain[t+1:])
@@ -33,15 +42,17 @@ func reactChain(chain []byte) []byte {
 		if a-b == 32 || b-a == 32 {
 			chain[i] = ' '
 			chain[j] = ' '
-			modded = true
+			t = findPrevNonSpace(chain[:i])
+			if t == -1 {
+				t = findNextNonSpace(chain)
+				if t == -1 {
+					break
+				}
+			}
 		}
 	}
 
-	if !modded {
-		return chain
-	}
-
-	return reactChain(chain)
+	return chain
 }
 
 type Puzzle struct {
@@ -72,39 +83,29 @@ func (p *Puzzle) Solution1() int {
 }
 
 func (p *Puzzle) Solution2() int {
-	done := make(chan int)
 	var a, b byte
+	shortest := math.MaxInt32
 	for a = 'A'; a <= 'Z'; a++ {
 		b = a + 32
 
-		go (func(a, b byte) {
-			buf := make([]byte, len(p.Chain))
-			copy(buf, p.Chain)
-			t := 0
-			for {
-				u := findNextNonSpace(buf[t+1:])
-				if u == -1 {
-					break
-				}
-
-				if buf[t] == a || buf[t] == b {
-					buf[t] = ' '
-				}
-
-				t += u + 1
+		buf := make([]byte, len(p.Chain))
+		copy(buf, p.Chain)
+		t := 0
+		for {
+			u := findNextNonSpace(buf[t+1:])
+			if u == -1 {
+				break
 			}
 
-			length := countBufLength(reactChain(buf))
-			done <- length
-		})(a, b)
-	}
+			if buf[t] == a || buf[t] == b {
+				buf[t] = ' '
+			}
 
-	count := 26
-	shortest := -1
-	for count > 0 {
-		length := <-done
-		count--
-		if shortest == -1 || length < shortest {
+			t += u + 1
+		}
+
+		length := countBufLength(reactChain(buf))
+		if length < shortest {
 			shortest = length
 		}
 	}
