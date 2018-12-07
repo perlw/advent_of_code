@@ -126,13 +126,15 @@ func (p *Puzzle) Solution1() int {
 		}
 	}
 
-	for y := 0; y < p.MaxY+2; y++ {
-		for x := 0; x < p.MaxX+2; x++ {
-			i := (y * (p.MaxX + 2)) + x
-			fmt.Printf("%c", grid[i])
+	/*
+		for y := 0; y < p.MaxY+2; y++ {
+			for x := 0; x < p.MaxX+2; x++ {
+				i := (y * (p.MaxX + 2)) + x
+				fmt.Printf("%c", grid[i])
+			}
+			fmt.Printf("\n")
 		}
-		fmt.Printf("\n")
-	}
+	*/
 
 	largest := 0
 	for _, point := range p.Points {
@@ -155,7 +157,57 @@ func (p *Puzzle) Solution1() int {
 }
 
 func (p *Puzzle) Solution2() int {
-	return 0
+	size := (p.MaxY + 2) * (p.MaxX + 2)
+	grid := make([]byte, size)
+	for y := 0; y < p.MaxY+2; y++ {
+		for x := 0; x < p.MaxX+2; x++ {
+			i := (y * (p.MaxX + 2)) + x
+			c := byte('.')
+
+			if x == 0 || x == p.MaxX+1 || y == 0 || y == p.MaxY+1 {
+				c = 219
+			}
+
+			for _, point := range p.Points {
+				if point.Equal(x, y) {
+					c = point.ID
+					break
+				}
+			}
+
+			grid[i] = c
+		}
+	}
+
+	drawn := 0
+	for y := 0; y < p.MaxY+2; y++ {
+		for x := 0; x < p.MaxX+2; x++ {
+			total := 0
+			for _, point := range p.Points {
+				total += point.Distance(x, y)
+			}
+
+			i := (y * (p.MaxX + 2)) + x
+			if grid[i] == 219 {
+				continue
+			} else {
+				if total < 10000 {
+					grid[i] = '#'
+					drawn++
+				}
+			}
+		}
+	}
+
+	/*for y := 0; y < p.MaxY+2; y++ {
+		for x := 0; x < p.MaxX+2; x++ {
+			i := (y * (p.MaxX + 2)) + x
+			fmt.Printf("%c", grid[i])
+		}
+		fmt.Printf("\n")
+	}*/
+
+	return drawn
 }
 
 func (p Puzzle) String() string {
