@@ -40,22 +40,15 @@ func (p Point) String() string {
 
 type Puzzle struct {
 	Points     []Point
-	MinX, MinY int
 	MaxX, MaxY int
 }
 
 func (p *Puzzle) Add(x, y int) {
 	p.Points = append(p.Points, Point{
-		ID: byte('A' + len(p.Points)),
+		ID: byte('"' + len(p.Points)),
 		X:  x,
 		Y:  y,
 	})
-	if x < p.MinX {
-		p.MinX = x
-	}
-	if y < p.MinY {
-		p.MinY = y
-	}
 	if x > p.MaxX {
 		p.MaxX = x
 	}
@@ -65,17 +58,15 @@ func (p *Puzzle) Add(x, y int) {
 }
 
 func (p *Puzzle) Solution1() int {
-	size := ((p.MaxY + 2) - p.MinY) * ((p.MaxX + 2) - p.MinX)
-	ox := -p.MinX
-	oy := -p.MinY
+	size := (p.MaxY + 2) * (p.MaxX + 2)
 	grid := make([]byte, size)
-	for y := p.MinY; y < p.MaxY+2; y++ {
-		for x := p.MinX; x < p.MaxX+2; x++ {
-			i := ((y + oy) * ((p.MaxX + 2) + ox)) + (x + ox)
+	for y := 0; y < p.MaxY+2; y++ {
+		for x := 0; x < p.MaxX+2; x++ {
+			i := (y * (p.MaxX + 2)) + x
 			c := byte('.')
 
-			if x == p.MinX || x == p.MaxX+1 || y == p.MinY || y == p.MaxY+1 {
-				c = '~'
+			if x == 0 || x == p.MaxX+1 || y == 0 || y == p.MaxY+1 {
+				c = 219
 			}
 
 			for _, point := range p.Points {
@@ -89,8 +80,8 @@ func (p *Puzzle) Solution1() int {
 	}
 
 	dist := make([]int, len(p.Points))
-	for y := p.MinY; y < p.MaxY+2; y++ {
-		for x := p.MinX; x < p.MaxX+2; x++ {
+	for y := 0; y < p.MaxY+2; y++ {
+		for x := 0; x < p.MaxX+2; x++ {
 			skip := false
 			for t, point := range p.Points {
 				if point.Equal(x, y) {
@@ -108,7 +99,7 @@ func (p *Puzzle) Solution1() int {
 			for t, d := range dist {
 				if d < shortest {
 					shortest = d
-					id = p.Points[t].ID + 32
+					id = p.Points[t].ID
 				}
 			}
 			matches := 0
@@ -118,26 +109,26 @@ func (p *Puzzle) Solution1() int {
 				}
 			}
 
-			i := ((y + oy) * ((p.MaxX + 2) + ox)) + (x + ox)
-			if grid[i] == '~' {
+			i := (y * (p.MaxX + 2)) + x
+			if grid[i] == 219 {
 				for t := range p.Points {
-					if p.Points[t].ID == id-32 {
+					if p.Points[t].ID == id {
 						p.Points[t].Inf = true
 						break
 					}
 				}
 			} else {
 				if matches > 1 {
-					id = '.'
+					id = '!'
 				}
 				grid[i] = id
 			}
 		}
 	}
 
-	for y := p.MinY; y < p.MaxY+2; y++ {
-		for x := p.MinX; x < p.MaxX+2; x++ {
-			i := ((y + oy) * ((p.MaxX + 2) + ox)) + (x + ox)
+	for y := 0; y < p.MaxY+2; y++ {
+		for x := 0; x < p.MaxX+2; x++ {
+			i := (y * (p.MaxX + 2)) + x
 			fmt.Printf("%c", grid[i])
 		}
 		fmt.Printf("\n")
@@ -151,7 +142,7 @@ func (p *Puzzle) Solution1() int {
 
 		count := 0
 		for _, c := range grid {
-			if c == point.ID || c == point.ID+32 {
+			if c == point.ID {
 				count++
 			}
 		}
@@ -169,9 +160,9 @@ func (p *Puzzle) Solution2() int {
 
 func (p Puzzle) String() string {
 	output := strings.Builder{}
-	output.WriteString(fmt.Sprintf("%dx%d -> %dx%d\n", p.MinX, p.MinY, p.MaxX, p.MaxY))
-	for y := p.MinY; y < p.MaxY+2; y++ {
-		for x := p.MinX; x < p.MaxX+2; x++ {
+	output.WriteString(fmt.Sprintf("%dx%d\n", p.MaxX, p.MaxY))
+	for y := 0; y < p.MaxY+2; y++ {
+		for x := 0; x < p.MaxX+2; x++ {
 			c := byte('.')
 			for _, point := range p.Points {
 				if point.Equal(x, y) {
