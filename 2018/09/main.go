@@ -7,51 +7,76 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
+type Item struct {
+	Prev *Item
+	Next *Item
+	Val  int
+}
+
 type Circular struct {
-	Data  []int
-	Index int
+	Root    *Item
+	Current *Item
 }
 
 func NewCircular() *Circular {
+	i := Item{
+		Val: 0,
+	}
+	i.Prev = &i
+	i.Next = &i
 	return &Circular{
-		Data:  make([]int, 0, 100),
-		Index: 0,
+		Current: &i,
+		Root:    &i,
 	}
 }
 
 func (c *Circular) Add(i int) {
-	if len(c.Data) == c.Index {
-		c.Data = append(c.Data, i)
-	} else {
-		tmp := append([]int{i}, c.Data[c.Index:]...)
-		c.Data = append(c.Data[:c.Index], tmp...)
+	it := Item{
+		Prev: c.Current,
+		Next: c.Current.Next,
+		Val:  i,
 	}
-	c.Index++
+	c.Current.Next.Prev = &it
+	c.Current.Next = &it
+	c.Current = &it
 }
 
-func (c *Circular) Del() int {
-	t := c.Data[c.Index]
-	c.Data = append(c.Data[:c.Index], c.Data[c.Index+1:]...)
-	c.Move(1)
-	return t
+func (c *Circular) Pop() int {
+	prev := c.Current.Prev
+	next := c.Current.Next
+	prev.Next = next
+	next.Prev = prev
+	val := c.Current.Val
+	c.Current = next
+	return val
 }
 
-func (c *Circular) Move(i int) {
-	c.Index += i
-	if c.Index >= len(c.Data) {
-		c.Index -= len(c.Data)
-	} else if c.Index < 0 {
-		c.Index = len(c.Data) + c.Index
+func (c *Circular) Rotate(i int) {
+	for {
+		if i > 0 {
+			c.Current = c.Current.Next
+			i--
+		} else if i < 0 {
+			c.Current = c.Current.Prev
+			i++
+		} else {
+			break
+		}
 	}
 }
 
 func (c Circular) String() string {
 	output := strings.Builder{}
-	for t, m := range c.Data {
-		if t == c.Index-1 {
-			output.WriteString(fmt.Sprintf("\t(%3d)", m))
+	it := c.Root
+	for {
+		if it == c.Current {
+			output.WriteString(fmt.Sprintf("\t(%3d)", it.Val))
 		} else {
-			output.WriteString(fmt.Sprintf("\t%4d", m))
+			output.WriteString(fmt.Sprintf("\t%4d", it.Val))
+		}
+		it = it.Next
+		if it == c.Root {
+			break
 		}
 	}
 	return output.String()
@@ -66,18 +91,16 @@ type Puzzle struct {
 func (p *Puzzle) Solution1(debug bool) int {
 	players := make([]int, p.Players)
 
-	p.Marbles.Add(0)
 	if debug {
 		fmt.Printf("[--]%s\n", p.Marbles)
 	}
 	pnum := 0
 	for t := 1; t <= p.LastMarble; t++ {
 		if t%23 == 0 {
-			p.Marbles.Move(-8)
-			i := p.Marbles.Del()
-			players[pnum] += t + i
+			p.Marbles.Rotate(-7)
+			players[pnum] += t + p.Marbles.Pop()
 		} else {
-			p.Marbles.Move(1)
+			p.Marbles.Rotate(1)
 			p.Marbles.Add(t)
 		}
 		if debug {
@@ -108,8 +131,10 @@ func (p *Puzzle) Solution2() int {
 
 func main() {
 	p := Puzzle{
+		//Players:    9,
+		// LastMarble: 25,
 		Players:    439,
-		LastMarble: 71307,
+		LastMarble: 7130700,
 		Marbles:    NewCircular(),
 	}
 
