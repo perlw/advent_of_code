@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"github.com/davecgh/go-spew/spew"
 )
 
 type Step struct {
@@ -146,8 +144,98 @@ func (p *Puzzle) Solution1() string {
 	return string(visited)
 }
 
+type Worker struct {
+	Current byte
+	Left    int
+}
+
+func (w *Worker) Assign(c byte) {
+	w.Current = c
+	w.Left = int(c-'A'+1) + 60
+}
+
+func (w *Worker) Tick() {
+	w.Left--
+}
+
+func (w *Worker) Done() bool {
+	return (w.Left == 0)
+}
+
 func (p *Puzzle) Solution2() int {
-	return 0
+	workers := make([]Worker, 5)
+
+	avail := make([]byte, 0, 10)
+	visited := make([]byte, 0, 10)
+	done := make([]byte, 0, 10)
+
+	for _, step := range p.Steps {
+		if contains(visited, step.Requires) {
+			fmt.Println(string(step.ID), "->", string(step.Requires), "/", string(step.RequiredBy))
+			avail = append(avail, step.ID)
+		}
+	}
+
+	count := 0
+	fmt.Printf("Second")
+	for t := range workers {
+		workers[t].Current = '.'
+		fmt.Printf("\tWorker%d", t)
+	}
+	fmt.Printf("\tAvail")
+	fmt.Println("\tDone")
+	for {
+		for i := range workers {
+			if workers[i].Done() {
+				if workers[i].Current != 0 && workers[i].Current != '.' {
+					if !contains(done, []byte{workers[i].Current}) {
+						done = append(done, workers[i].Current)
+					}
+					for _, step := range p.Steps {
+						if contains(done, step.Requires) && !contains(visited, []byte{step.ID}) &&
+							!contains(avail, []byte{step.ID}) && !contains(done, []byte{step.ID}) {
+							avail = append(avail, step.ID)
+						}
+					}
+					workers[i].Current = '.'
+				}
+
+				ni := -1
+				next := byte('[')
+				for t, c := range avail {
+					if c < next {
+						next = c
+						ni = t
+					}
+				}
+				if next == '[' {
+					continue
+				}
+				avail = append(avail[:ni], avail[ni+1:]...)
+
+				if !contains(visited, []byte{next}) {
+					visited = append(visited, next)
+				}
+
+				workers[i].Assign(next)
+			}
+
+			workers[i].Tick()
+		}
+
+		fmt.Printf("%4d", count)
+		for _, worker := range workers {
+			fmt.Printf("\t%4c", worker.Current)
+		}
+		fmt.Printf("\t%s", avail)
+		fmt.Printf("\t%s\n", done)
+		if len(done) == len(p.Steps) {
+			break
+		}
+		count++
+	}
+
+	return count
 }
 
 func main() {
@@ -169,10 +257,6 @@ func main() {
 		panic(err.Error())
 	}
 
-	spew.Dump(p.Steps)
-	for _, step := range p.Steps {
-		fmt.Println(string(step.ID), "->", string(step.Requires), "/", string(step.RequiredBy))
-	}
 	fmt.Println(p.Solution1())
-	fmt.Println(p.Solution2())
+	fmt.Println("-->", p.Solution2(), "<--")
 }
