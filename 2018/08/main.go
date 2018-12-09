@@ -18,7 +18,7 @@ func (p *Puzzle) Solution1() int {
 }
 
 func (p *Puzzle) Solution2() int {
-	return 0
+	return p.Root.Value()
 }
 
 /*
@@ -39,6 +39,20 @@ func (n *Node) SumMetadata() int {
 	}
 	for _, meta := range n.Metadata {
 		total += meta
+	}
+	return total
+}
+
+func (n *Node) Value() int {
+	if len(n.Children) == 0 {
+		return n.SumMetadata()
+	}
+
+	total := 0
+	for _, meta := range n.Metadata {
+		if meta > 0 && meta <= len(n.Children) {
+			total += n.Children[meta-1].Value()
+		}
 	}
 	return total
 }
