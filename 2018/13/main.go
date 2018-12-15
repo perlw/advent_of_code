@@ -18,6 +18,78 @@ type Cart struct {
 	X, Y     int
 	Dir      byte
 	LastTurn int
+	Dead     bool
+}
+
+func (c *Cart) Turn() {
+	switch c.LastTurn {
+	case 0:
+		switch c.Dir {
+		case '>':
+			c.Dir = '^'
+		case '<':
+			c.Dir = 'v'
+		case '^':
+			c.Dir = '<'
+		case 'v':
+			c.Dir = '>'
+		}
+		c.LastTurn++
+	case 1:
+		c.LastTurn++
+	case 2:
+		switch c.Dir {
+		case '>':
+			c.Dir = 'v'
+		case '<':
+			c.Dir = '^'
+		case '^':
+			c.Dir = '>'
+		case 'v':
+			c.Dir = '<'
+		}
+		c.LastTurn = 0
+	}
+}
+
+func (c *Cart) Move(b byte) {
+	switch b {
+	case '\\':
+		switch c.Dir {
+		case '>':
+			c.Dir = 'v'
+		case '<':
+			c.Dir = '^'
+		case '^':
+			c.Dir = '<'
+		case 'v':
+			c.Dir = '>'
+		}
+	case '/':
+		switch c.Dir {
+		case '>':
+			c.Dir = '^'
+		case '<':
+			c.Dir = 'v'
+		case '^':
+			c.Dir = '>'
+		case 'v':
+			c.Dir = '<'
+		}
+	case '+':
+		c.Turn()
+	}
+
+	switch c.Dir {
+	case '>':
+		c.X++
+	case '<':
+		c.X--
+	case '^':
+		c.Y--
+	case 'v':
+		c.Y++
+	}
 }
 
 type Puzzle struct {
@@ -25,172 +97,77 @@ type Puzzle struct {
 	Carts     []Cart
 }
 
-func (p *Puzzle) FindCollision(x, y int) bool {
-	count := 0
-	for t := range p.Carts {
-		if p.Carts[t].X == x && p.Carts[t].Y == y {
-			count++
-		}
-	}
-	return count > 1
-}
-
-func (p *Puzzle) FindCart(x, y int) int {
-	for t := range p.Carts {
-		if p.Carts[t].X == x && p.Carts[t].Y == y {
-			return t
-		}
-	}
-	return -1
-}
-
 func (p *Puzzle) Tick() (bool, int, int) {
-	crash := false
-	var cX, cY int
-	carts := make([]Cart, 0, len(p.Carts))
-	for y := 0; y < gridY; y++ {
-		for x := 0; x < gridX; x++ {
-			i := (y * gridX) + x
+	for t, c := range p.Carts {
+		b := p.Playfield[(c.Y*gridX)+c.X]
+		p.Carts[t].Move(b)
 
-			if ci := p.FindCart(x, y); ci > -1 {
-				c := p.Playfield[i]
-				cart := p.Carts[ci]
-
-				switch c {
-				case '\\':
-					switch cart.Dir {
-					case '<':
-						cart.Dir = '^'
-					case '>':
-						cart.Dir = 'v'
-					case '^':
-						cart.Dir = '<'
-					case 'v':
-						cart.Dir = '>'
-					}
-				case '/':
-					switch cart.Dir {
-					case '<':
-						cart.Dir = 'v'
-					case '>':
-						cart.Dir = '^'
-					case '^':
-						cart.Dir = '>'
-					case 'v':
-						cart.Dir = '<'
-					}
-				case '+':
-					switch cart.Dir {
-					case '<':
-						switch cart.LastTurn {
-						case 0:
-							cart.Dir = 'v'
-							cart.LastTurn++
-						case 1:
-							cart.LastTurn++
-						case 2:
-							cart.Dir = '^'
-							cart.LastTurn = 0
-						}
-					case '>':
-						switch cart.LastTurn {
-						case 0:
-							cart.Dir = '^'
-							cart.LastTurn++
-						case 1:
-							cart.LastTurn++
-						case 2:
-							cart.Dir = 'v'
-							cart.LastTurn = 0
-						}
-					case '^':
-						switch cart.LastTurn {
-						case 0:
-							cart.Dir = '<'
-							cart.LastTurn++
-						case 1:
-							cart.LastTurn++
-						case 2:
-							cart.Dir = '>'
-							cart.LastTurn = 0
-						}
-					case 'v':
-						switch cart.LastTurn {
-						case 0:
-							cart.Dir = '>'
-							cart.LastTurn++
-						case 1:
-							cart.LastTurn++
-						case 2:
-							cart.Dir = '<'
-							cart.LastTurn = 0
-						}
-					}
+		count := 0
+		other := t
+		for u, cb := range p.Carts {
+			if p.Carts[t].X == cb.X && p.Carts[t].Y == cb.Y {
+				if other != u {
+					other = u
 				}
-
-				switch cart.Dir {
-				case '<':
-					cart.X--
-				case '>':
-					cart.X++
-				case '^':
-					cart.Y--
-				case 'v':
-					cart.Y++
-				}
-
-				carts = append(carts, cart)
-			}
-
-			if p.FindCollision(x, y) {
-				crash = true
-				cX = x
-				cY = y
-				break
+				count++
 			}
 		}
+		if count > 1 {
+			p.Carts[t].Dead = true
+			p.Carts[other].Dead = true
+			fmt.Println("boom")
+			return true, p.Carts[t].X, p.Carts[t].Y
+		}
 	}
-	p.Carts = carts
-	return crash, cX, cY
+	return false, 0, 0
 }
 
 func (p *Puzzle) Solution1(pretty bool) (int, int) {
+	grid := make([]byte, gridSize)
+
+	var crash bool
 	var cX, cY int
 	for {
-		crash := false
-		if crash, cX, cY = p.Tick(); crash {
+		crash, cX, cY = p.Tick()
+		if crash {
 			break
 		}
+
 		if pretty {
-			for y := 0; y < gridY; y++ {
-				for x := 0; x < gridX; x++ {
-					i := (y * gridX) + x
-					c := p.Playfield[i]
-
-					if cart := p.FindCart(x, y); cart > -1 {
-						c = p.Carts[cart].Dir
-					}
-
-					fmt.Printf("%c", c)
+			copy(grid, p.Playfield)
+			for _, c := range p.Carts {
+				if c.Dead {
+					continue
 				}
-				fmt.Printf("\n")
-			}
-		}
 
-		time.Sleep(100 * time.Millisecond)
+				i := (c.Y * gridX) + c.X
+				grid[i] = c.Dir
+			}
+
+			for y := 0; y < gridY; y++ {
+				fmt.Println(string(grid[y*gridX : (y*gridX)+gridX]))
+			}
+
+			time.Sleep(100 * time.Millisecond)
+		}
 	}
-	for y := 0; y < gridY; y++ {
-		for x := 0; x < gridX; x++ {
-			i := (y * gridX) + x
-			c := p.Playfield[i]
-
-			if x == cX && y == cY {
-				c = 'X'
-			}
-
-			fmt.Printf("%c", c)
+	copy(grid, p.Playfield)
+	for _, c := range p.Carts {
+		if c.Dead {
+			continue
 		}
-		fmt.Printf("\n")
+
+		i := (c.Y * gridX) + c.X
+		grid[i] = c.Dir
+	}
+
+	if crash {
+		i := (cY * gridX) + cX
+		grid[i] = 'X'
+	}
+
+	for y := 0; y < gridY; y++ {
+		fmt.Println(string(grid[y*gridX : (y*gridX)+gridX]))
 	}
 	return cX, cY
 }
@@ -206,6 +183,9 @@ func main() {
 	p := Puzzle{
 		Playfield: make([]byte, gridSize),
 		Carts:     make([]Cart, 0, 2),
+	}
+	for t := range p.Playfield {
+		p.Playfield[t] = ' '
 	}
 	lines := 0
 	for scanner.Scan() {
