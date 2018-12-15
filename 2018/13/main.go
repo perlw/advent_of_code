@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 )
 
@@ -92,45 +93,80 @@ func (c *Cart) Move(b byte) {
 	}
 }
 
+type ByCoord []Cart
+
+func (b ByCoord) Len() int {
+	return len(b)
+}
+func (b ByCoord) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+func (b ByCoord) Less(i, j int) bool {
+	ia := (b[i].Y * gridX) + b[i].X
+	ib := (b[j].Y * gridX) + b[j].X
+	return ia < ib
+}
+
+type Collision struct {
+	Ca, Cb int
+	X, Y   int
+}
+
 type Puzzle struct {
 	Playfield []byte
 	Carts     []Cart
 }
 
-func (p *Puzzle) Tick() (bool, int, int) {
+func (p *Puzzle) Tick() []Collision {
+	sort.Sort(ByCoord(p.Carts))
+	collisions := make([]Collision, 0, 2)
 	for t, c := range p.Carts {
+		if c.Dead {
+			continue
+		}
+
 		b := p.Playfield[(c.Y*gridX)+c.X]
 		p.Carts[t].Move(b)
 
-		count := 0
-		other := t
 		for u, cb := range p.Carts {
+			if cb.Dead || t == u {
+				continue
+			}
+
 			if p.Carts[t].X == cb.X && p.Carts[t].Y == cb.Y {
-				if other != u {
-					other = u
-				}
-				count++
+				p.Carts[t].Dead = true
+				p.Carts[u].Dead = true
+				collisions = append(collisions, Collision{
+					Ca: t,
+					Cb: u,
+					X:  p.Carts[t].X,
+					Y:  p.Carts[t].Y,
+				})
+				break
 			}
 		}
-		if count > 1 {
-			p.Carts[t].Dead = true
-			p.Carts[other].Dead = true
-			fmt.Println("boom")
-			return true, p.Carts[t].X, p.Carts[t].Y
-		}
 	}
-	return false, 0, 0
+	return collisions
 }
 
 func (p *Puzzle) Solution1(pretty bool) (int, int) {
 	grid := make([]byte, gridSize)
 
-	var crash bool
-	var cX, cY int
+	collisions := make([]Collision, 0, 10)
 	for {
-		crash, cX, cY = p.Tick()
-		if crash {
+		count := 0
+		for _, c := range p.Carts {
+			if c.Dead {
+				count++
+			}
+		}
+		if count >= len(p.Carts)-1 {
 			break
+		}
+
+		c := p.Tick()
+		if len(c) > 0 {
+			collisions = append(collisions, c...)
 		}
 
 		if pretty {
@@ -152,6 +188,10 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 		}
 	}
 	copy(grid, p.Playfield)
+	for _, c := range collisions {
+		i := (c.Y * gridX) + c.X
+		grid[i] = 'X'
+	}
 	for _, c := range p.Carts {
 		if c.Dead {
 			continue
@@ -161,15 +201,21 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 		grid[i] = c.Dir
 	}
 
-	if crash {
-		i := (cY * gridX) + cX
-		grid[i] = 'X'
-	}
-
 	for y := 0; y < gridY; y++ {
 		fmt.Println(string(grid[y*gridX : (y*gridX)+gridX]))
 	}
-	return cX, cY
+
+	var aX, aY int
+	for _, c := range p.Carts {
+		if c.Dead {
+			fmt.Println("dead", c.X, c.Y)
+			continue
+		}
+		fmt.Println("alive", c.X, c.Y)
+		aX = c.X
+		aY = c.Y
+	}
+	return aX, aY
 }
 
 func main() {
