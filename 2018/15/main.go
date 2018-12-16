@@ -101,6 +101,7 @@ type Creature interface {
 	GetPower() int
 	GetTile() *TileDef
 	Move(int, int)
+	Hurt(int)
 }
 
 func NewCreature(tileID TileID, x, y int) Creature {
@@ -152,6 +153,10 @@ func (e *Elf) Move(dx, dy int) {
 	e.Y += dy
 }
 
+func (e *Elf) Hurt(dmg int) {
+	e.Hp -= dmg
+}
+
 type Goblin struct {
 	X, Y  int
 	Hp    int
@@ -188,6 +193,10 @@ func (g *Goblin) GetTile() *TileDef {
 func (g *Goblin) Move(dx, dy int) {
 	g.X += dx
 	g.Y += dy
+}
+
+func (g *Goblin) Hurt(dmg int) {
+	g.Hp -= dmg
 }
 
 var GridWidth int
@@ -236,6 +245,10 @@ func (p *Puzzle) flood(reach []rune, sx, sy int, dir FloodDir, creature TileID) 
 	}
 	close := false
 	for _, c := range p.Creatures {
+		if c.GetHp() < 1 {
+			continue
+		}
+
 		cx, cy := c.GetPos()
 		if sx == cx && sy == cy {
 			if c.GetTile().ID != creature {
@@ -316,26 +329,52 @@ func (c ByCoord) Less(i, j int) bool {
 
 type Point []int
 
+var aliveColor = color.New(color.FgGreen)
+var deadColor = color.New(color.FgRed)
+
 func (p *Puzzle) Solution1(pretty bool) int {
 	turn := 1
 	for {
 		fmt.Printf("\n### Turn %d ###\n", turn)
-		for _, c := range p.Creatures {
-			fmt.Printf("%s,", c.GetTile().ID)
-		}
-		fmt.Printf("\n")
-
-		// fmt.Printf("Turn order: ")
+		fmt.Printf("Turn order: ")
 		sort.Sort(ByCoord(p.Creatures))
 		for _, c := range p.Creatures {
-			fmt.Printf("%s,", c.GetTile().ID)
+			col := aliveColor
+			if c.GetHp() < 1 {
+				col = deadColor
+			}
+			col.Printf("%s (%dhp),", c.GetTile().ID, c.GetHp())
 		}
 		fmt.Printf("\n")
+		p.PrintState()
+		waitEnter()
 
 		for t, c := range p.Creatures {
+			if c.GetHp() < 1 {
+				continue
+			}
+
+			aliveGoblins := 0
+			aliveElves := 0
+			for _, c := range p.Creatures {
+				if c.GetHp() < 1 {
+					continue
+				}
+				switch c.GetTile().ID {
+				case TileIDElf:
+					aliveElves++
+				case TileIDGoblin:
+					aliveGoblins++
+				}
+			}
+			if aliveGoblins == 0 || aliveElves == 0 {
+				fmt.Print("DEAD!")
+				return 0
+			}
+
 			fmt.Printf("\n=== #%d, %s ===\n", t, c.GetTile().ID)
 
-			p.PrintState()
+			// p.PrintState()
 
 			fmt.Printf("\n")
 			cx, cy := c.GetPos()
@@ -375,14 +414,10 @@ func (p *Puzzle) Solution1(pretty bool) int {
 			}
 
 			if len(targets) == 0 {
-				fmt.Println("ALL DEAD")
-				return 0
+				fmt.Printf("#%d, %s have no targets and is confused...\n", t, c.GetTile().ID)
+				continue
 			}
 
-			fmt.Println(len(targets), targets)
-			fmt.Println(len(positions), positions)
-
-			fmt.Println("next to:", nextToTarget)
 			if nextToTarget < 0 {
 				// n, w, e, s
 				lowest := 100
@@ -390,37 +425,54 @@ func (p *Puzzle) Solution1(pretty bool) int {
 				dirs := []int{100, 100, 100, 100}
 				for _, p := range positions {
 					var d int
-					d = abs(cx-p[0]) + abs(cy-p[1]-1)
-					if d < dirs[0] {
-						dirs[0] = d
+					var i int
+
+					i = ((cy - 1) * GridWidth) + cx
+					if reach[i] == '+' || reach[i] == '!' {
+						d = abs(cx-p[0]) + abs(cy-p[1]-1)
+						if d < dirs[0] {
+							dirs[0] = d
+						}
+						if d < lowest {
+							lowest = d
+							dir = 0
+						}
 					}
-					if d < lowest {
-						lowest = d
-						dir = 0
+
+					i = (cy * GridWidth) + cx - 1
+					if reach[i] == '+' || reach[i] == '!' {
+						d = abs(cx-p[0]-1) + abs(cy-p[1])
+						if d < dirs[1] {
+							dirs[1] = d
+						}
+						if d < lowest {
+							lowest = d
+							dir = 1
+						}
 					}
-					d = abs(cx-p[0]-1) + abs(cy-p[1])
-					if d < dirs[1] {
-						dirs[1] = d
+
+					i = (cy * GridWidth) + cx + 1
+					if reach[i] == '+' || reach[i] == '!' {
+						d = abs(cx-p[0]+1) + abs(cy-p[1])
+						if d < dirs[2] {
+							dirs[2] = d
+						}
+						if d < lowest {
+							lowest = d
+							dir = 2
+						}
 					}
-					if d < lowest {
-						lowest = d
-						dir = 1
-					}
-					d = abs(cx-p[0]+1) + abs(cy-p[1])
-					if d < dirs[2] {
-						dirs[2] = d
-					}
-					if d < lowest {
-						lowest = d
-						dir = 2
-					}
-					d = abs(cx-p[0]) + abs(cy-p[1]+1)
-					if d < dirs[3] {
-						dirs[3] = d
-					}
-					if d < lowest {
-						lowest = d
-						dir = 3
+
+					i = ((cy + 1) * GridWidth) + cx
+					if reach[i] == '+' || reach[i] == '!' {
+						d = abs(cx-p[0]) + abs(cy-p[1]+1)
+						if d < dirs[3] {
+							dirs[3] = d
+						}
+						if d < lowest {
+							lowest = d
+							dir = 3
+						}
 					}
 				}
 
@@ -434,17 +486,49 @@ func (p *Puzzle) Solution1(pretty bool) int {
 				case 3:
 					c.Move(0, 1)
 				}
+
+				// New target check due to move
+				lowestHp := 999
+				cx, cy = c.GetPos()
+				for y := 0; y < GridWidth; y++ {
+					for x := 0; x < GridWidth; x++ {
+						i := (y * GridWidth) + x
+						if reach[i] == 'X' {
+							for t, cc := range p.Creatures {
+								cxx, cyy := cc.GetPos()
+								if x == cxx && y == cyy {
+									d := abs(cx-cxx) + abs(cy-cyy)
+									if d < 2 {
+										if nextToTarget < 0 {
+											nextToTarget = t
+										}
+										if c.GetHp() < lowestHp {
+											lowestHp = c.GetHp()
+											nextToTarget = t
+										}
+									}
+								}
+							}
+						}
+					}
+				}
 			}
 
 			if nextToTarget > -1 {
+				fmt.Printf("#%d, %s attacks #%d, %s: ", t, c.GetTile().ID, nextToTarget, p.Creatures[nextToTarget].GetTile().ID)
+				p.Creatures[nextToTarget].Hurt(c.GetPower())
+				fmt.Printf("#%d, %s takes %ddmg ", nextToTarget, p.Creatures[nextToTarget].GetTile().ID, c.GetPower())
+				if p.Creatures[nextToTarget].GetHp() < 1 {
+					fmt.Printf("and dies...")
+					// waitEnter()
+				} else {
+					fmt.Printf("and have %dHP left", p.Creatures[nextToTarget].GetHp())
+				}
+				fmt.Printf("\n")
 			}
-
-			waitEnter()
 		}
 		turn++
 	}
-
-	return 0
 }
 
 func (p *Puzzle) PrintState() {
@@ -453,6 +537,9 @@ func (p *Puzzle) PrintState() {
 			i := (y * GridWidth) + x
 			found := false
 			for _, c := range p.Creatures {
+				if c.GetHp() < 1 {
+					continue
+				}
 				cx, cy := c.GetPos()
 				if cx == x && cy == y {
 					found = true
