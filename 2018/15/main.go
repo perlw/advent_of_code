@@ -8,6 +8,10 @@ import (
 	"github.com/fatih/color"
 )
 
+func waitEnter() {
+	bufio.NewReader(os.Stdin).ReadBytes('\n')
+}
+
 type TileID int
 
 const (
@@ -158,8 +162,111 @@ type Puzzle struct {
 	Creatures []Creature
 }
 
+type FloodDir int
+
+const (
+	FloodDirN FloodDir = iota
+	FloodDirS
+	FloodDirW
+	FloodDirE
+)
+
+func abs(v int) int {
+	if v < 0 {
+		v = -v
+	}
+	return v
+}
+
+func (p *Puzzle) flood(reach []rune, sx, sy int, dir FloodDir) {
+	switch dir {
+	case FloodDirN:
+		sy--
+	case FloodDirS:
+		sy++
+	case FloodDirW:
+		sx--
+	case FloodDirE:
+		sx++
+	}
+
+	if sx < 0 || sy < 0 || sx > p.GridWidth-1 || sy > p.GridWidth-1 {
+		return
+	}
+
+	i := (sy * p.GridWidth) + sx
+	if reach[i] == '+' || p.World[i].Def.Char == '#' {
+		return
+	}
+	close := false
+	for _, c := range p.Creatures {
+		cx, cy := c.GetPos()
+		if sx == cx && sy == cy {
+			reach[i] = 'X'
+			return
+		}
+		d := abs(cx-sx) + abs(cy-sy)
+		if d < 2 {
+			close = true
+		}
+	}
+
+	if close {
+		reach[i] = '!'
+	} else {
+		reach[i] = '+'
+	}
+
+	switch dir {
+	case FloodDirN:
+		p.flood(reach, sx, sy, FloodDirN)
+		p.flood(reach, sx, sy, FloodDirW)
+		p.flood(reach, sx, sy, FloodDirE)
+	case FloodDirS:
+		p.flood(reach, sx, sy, FloodDirS)
+		p.flood(reach, sx, sy, FloodDirW)
+		p.flood(reach, sx, sy, FloodDirE)
+	case FloodDirW:
+		p.flood(reach, sx, sy, FloodDirN)
+		p.flood(reach, sx, sy, FloodDirS)
+		p.flood(reach, sx, sy, FloodDirW)
+	case FloodDirE:
+		p.flood(reach, sx, sy, FloodDirN)
+		p.flood(reach, sx, sy, FloodDirS)
+		p.flood(reach, sx, sy, FloodDirE)
+	}
+}
+
+func (p *Puzzle) floodFillReach(sx, sy int) []rune {
+	reach := make([]rune, p.GridSize)
+	for y := 0; y < p.GridWidth; y++ {
+		for x := 0; x < p.GridWidth; x++ {
+			i := (y * p.GridWidth) + x
+			reach[i] = ' '
+		}
+	}
+
+	p.flood(reach, sx, sy, FloodDirN)
+	p.flood(reach, sx, sy, FloodDirS)
+	p.flood(reach, sx, sy, FloodDirW)
+	p.flood(reach, sx, sy, FloodDirE)
+
+	return reach
+}
+
 func (p *Puzzle) Solution1(pretty bool) int {
 	p.PrintState()
+
+	fmt.Printf("\n")
+	reach := p.floodFillReach(1, 1)
+	for y := 0; y < p.GridWidth; y++ {
+		for x := 0; x < p.GridWidth; x++ {
+			i := (y * p.GridWidth) + x
+			fmt.Printf("%c", reach[i])
+		}
+		fmt.Printf("\n")
+	}
+	waitEnter()
 
 	return 0
 }
@@ -231,7 +338,7 @@ func main() {
 		panic(err.Error())
 	}
 	p.GridWidth = lines
-	p.GridSize = p.GridWidth * 2
+	p.GridSize = p.GridWidth * p.GridWidth
 
 	fmt.Println(p.Solution1(true))
 }
