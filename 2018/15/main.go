@@ -98,6 +98,7 @@ func findTileDef(tileMap map[TileID]*TileDef, char rune) (*TileDef, TileID) {
 type Creature interface {
 	GetHp() int
 	GetPos() (int, int)
+	GetLPos() (int, int)
 	GetPower() int
 	GetTile() *TileDef
 	Move(int, int)
@@ -116,16 +117,19 @@ func NewCreature(tileID TileID, x, y int) Creature {
 }
 
 type Elf struct {
-	X, Y  int
-	Hp    int
-	Power int
-	Tile  *TileDef
+	X, Y   int
+	LX, LY int
+	Hp     int
+	Power  int
+	Tile   *TileDef
 }
 
 func NewElf(x, y int) *Elf {
 	return &Elf{
 		X:     x,
 		Y:     y,
+		LX:    -1,
+		LY:    -1,
 		Hp:    200,
 		Power: 3,
 		Tile:  CreatureMap[TileIDElf],
@@ -140,6 +144,10 @@ func (e *Elf) GetPos() (int, int) {
 	return e.X, e.Y
 }
 
+func (e *Elf) GetLPos() (int, int) {
+	return e.LX, e.LY
+}
+
 func (e *Elf) GetPower() int {
 	return e.Power
 }
@@ -149,6 +157,7 @@ func (e *Elf) GetTile() *TileDef {
 }
 
 func (e *Elf) Move(dx, dy int) {
+	e.LX, e.LY = e.X, e.Y
 	e.X += dx
 	e.Y += dy
 }
@@ -158,16 +167,19 @@ func (e *Elf) Hurt(dmg int) {
 }
 
 type Goblin struct {
-	X, Y  int
-	Hp    int
-	Power int
-	Tile  *TileDef
+	X, Y   int
+	LX, LY int
+	Hp     int
+	Power  int
+	Tile   *TileDef
 }
 
 func NewGoblin(x, y int) *Goblin {
 	return &Goblin{
 		X:     x,
 		Y:     y,
+		LX:    -1,
+		LY:    -1,
 		Hp:    200,
 		Power: 3,
 		Tile:  CreatureMap[TileIDGoblin],
@@ -182,6 +194,10 @@ func (g *Goblin) GetPos() (int, int) {
 	return g.X, g.Y
 }
 
+func (g *Goblin) GetLPos() (int, int) {
+	return g.LX, g.LY
+}
+
 func (g *Goblin) GetPower() int {
 	return g.Power
 }
@@ -191,6 +207,7 @@ func (g *Goblin) GetTile() *TileDef {
 }
 
 func (g *Goblin) Move(dx, dy int) {
+	g.LX, g.LY = g.X, g.Y
 	g.X += dx
 	g.Y += dy
 }
@@ -223,7 +240,7 @@ func abs(v int) int {
 	return v
 }
 
-func (p *Puzzle) flood(reach []rune, sx, sy int, dir FloodDir, creature TileID) {
+func (p *Puzzle) flood(reach []rune, sx, sy int, dir FloodDir, creature Creature) {
 	switch dir {
 	case FloodDirN:
 		sy--
@@ -239,6 +256,11 @@ func (p *Puzzle) flood(reach []rune, sx, sy int, dir FloodDir, creature TileID) 
 		return
 	}
 
+	lx, ly := creature.GetLPos()
+	if sx == lx && sy == ly {
+		return
+	}
+
 	i := (sy * GridWidth) + sx
 	if reach[i] == '+' || p.World[i].Def.Char == '#' {
 		return
@@ -251,14 +273,14 @@ func (p *Puzzle) flood(reach []rune, sx, sy int, dir FloodDir, creature TileID) 
 
 		cx, cy := c.GetPos()
 		if sx == cx && sy == cy {
-			if c.GetTile().ID != creature {
+			if c.GetTile().ID != creature.GetTile().ID {
 				reach[i] = 'X'
 			} else {
 				reach[i] = '-'
 			}
 			return
 		}
-		if c.GetTile().ID != creature {
+		if c.GetTile().ID != creature.GetTile().ID {
 			d := abs(cx-sx) + abs(cy-sy)
 			if d < 2 {
 				close = true
@@ -292,7 +314,7 @@ func (p *Puzzle) flood(reach []rune, sx, sy int, dir FloodDir, creature TileID) 
 	}
 }
 
-func (p *Puzzle) floodFillReach(sx, sy int, creature TileID) []rune {
+func (p *Puzzle) floodFillReach(sx, sy int, creature Creature) []rune {
 	reach := make([]rune, GridSize)
 	for y := 0; y < GridWidth; y++ {
 		for x := 0; x < GridWidth; x++ {
@@ -332,7 +354,7 @@ type Point []int
 var aliveColor = color.New(color.FgGreen)
 var deadColor = color.New(color.FgRed)
 
-func (p *Puzzle) Solution1(pretty bool) int {
+func (p *Puzzle) Solution1(pretty bool) (int, int) {
 	turn := 1
 	for {
 		fmt.Printf("\n### Turn %d ###\n", turn)
@@ -346,8 +368,8 @@ func (p *Puzzle) Solution1(pretty bool) int {
 			col.Printf("%s (%dhp),", c.GetTile().ID, c.GetHp())
 		}
 		fmt.Printf("\n")
-		p.PrintState()
-		waitEnter()
+		//p.PrintState()
+		//waitEnter()
 
 		for t, c := range p.Creatures {
 			if c.GetHp() < 1 {
@@ -368,17 +390,21 @@ func (p *Puzzle) Solution1(pretty bool) int {
 				}
 			}
 			if aliveGoblins == 0 || aliveElves == 0 {
-				fmt.Print("DEAD!")
-				return 0
+				score := 0
+				for _, c := range p.Creatures {
+					if c.GetHp() < 1 {
+						continue
+					}
+					score += c.GetHp()
+				}
+				return score, score * (turn - 1)
 			}
 
 			fmt.Printf("\n=== #%d, %s ===\n", t, c.GetTile().ID)
 
-			// p.PrintState()
-
 			fmt.Printf("\n")
 			cx, cy := c.GetPos()
-			reach := p.floodFillReach(cx, cy, c.GetTile().ID)
+			reach := p.floodFillReach(cx, cy, c)
 			for y := 0; y < GridWidth; y++ {
 				for x := 0; x < GridWidth; x++ {
 					i := (y * GridWidth) + x
@@ -395,6 +421,10 @@ func (p *Puzzle) Solution1(pretty bool) int {
 					i := (y * GridWidth) + x
 					if reach[i] == 'X' {
 						for t, cc := range p.Creatures {
+							if cc.GetTile().ID == c.GetTile().ID {
+								continue
+							}
+
 							cxx, cyy := cc.GetPos()
 							if x == cxx && y == cyy {
 								if nextToTarget < 0 {
@@ -415,6 +445,7 @@ func (p *Puzzle) Solution1(pretty bool) int {
 
 			if len(targets) == 0 {
 				fmt.Printf("#%d, %s have no targets and is confused...\n", t, c.GetTile().ID)
+				c.Move(0, 0)
 				continue
 			}
 
@@ -495,6 +526,10 @@ func (p *Puzzle) Solution1(pretty bool) int {
 						i := (y * GridWidth) + x
 						if reach[i] == 'X' {
 							for t, cc := range p.Creatures {
+								if cc.GetTile().ID == c.GetTile().ID {
+									continue
+								}
+
 								cxx, cyy := cc.GetPos()
 								if x == cxx && y == cyy {
 									d := abs(cx-cxx) + abs(cy-cyy)
@@ -520,12 +555,14 @@ func (p *Puzzle) Solution1(pretty bool) int {
 				fmt.Printf("#%d, %s takes %ddmg ", nextToTarget, p.Creatures[nextToTarget].GetTile().ID, c.GetPower())
 				if p.Creatures[nextToTarget].GetHp() < 1 {
 					fmt.Printf("and dies...")
-					// waitEnter()
 				} else {
 					fmt.Printf("and have %dHP left", p.Creatures[nextToTarget].GetHp())
 				}
 				fmt.Printf("\n")
 			}
+
+			/*p.PrintState()
+			waitEnter()*/
 		}
 		turn++
 	}
@@ -604,4 +641,6 @@ func main() {
 	GridSize = GridWidth * GridWidth
 
 	fmt.Println(p.Solution1(true))
+
+	p.PrintState()
 }
