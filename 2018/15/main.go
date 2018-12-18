@@ -224,6 +224,18 @@ type Puzzle struct {
 	Creatures []Creature
 }
 
+type Creatures []Creature
+
+func (c Creatures) Filter(id TileID) []Creature {
+	creatures := make([]Creature, 0)
+	for _, cc := range c {
+		if cc.GetTile().ID == id {
+			creatures = append(creatures, cc)
+		}
+	}
+	return creatures
+}
+
 type FloodDir int
 
 const (
@@ -331,6 +343,49 @@ func (p *Puzzle) floodFillReach(sx, sy int, creature Creature) []rune {
 	return reach
 }
 
+type Path struct {
+}
+
+type Step struct {
+}
+
+func (p *Puzzle) djikstra(sx, sy int, targets []Creature) []Path {
+	for _, c := range targets {
+		unvisited := make([]rune, len(p.World))
+		for y := 0; y < GridWidth; y++ {
+			for x := 0; x < GridWidth; x++ {
+				i := (y * GridWidth) + x
+				if x == sx && y == sy {
+					unvisited[i] = 'S'
+					continue
+				}
+				cx, cy := c.GetPos()
+				if x == cx && y == cy {
+					unvisited[i] = 'T'
+					continue
+				}
+				if p.World[i].Def.Char == '.' {
+					unvisited[i] = '.'
+					continue
+				}
+				unvisited[i] = ' '
+			}
+		}
+
+		current := (sy * GridWidth) + sx
+
+		for y := 0; y < GridWidth; y++ {
+			for x := 0; x < GridWidth; x++ {
+				i := (y * GridWidth) + x
+				fmt.Printf("%c", unvisited[i])
+			}
+			fmt.Printf("\n")
+		}
+	}
+
+	return nil
+}
+
 type ByCoord []Creature
 
 func (c ByCoord) Len() int {
@@ -405,13 +460,26 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 			fmt.Printf("\n")
 			cx, cy := c.GetPos()
 			reach := p.floodFillReach(cx, cy, c)
-			for y := 0; y < GridWidth; y++ {
+			{
+				targetID := TileIDUnknown
+				switch c.GetTile().ID {
+				case TileIDElf:
+					targetID = TileIDGoblin
+				case TileIDGoblin:
+					targetID = TileIDElf
+				}
+				p.djikstra(cx, cy, Creatures(p.Creatures).Filter(targetID))
+			}
+			/* for y := 0; y < GridWidth; y++ {
 				for x := 0; x < GridWidth; x++ {
 					i := (y * GridWidth) + x
 					fmt.Printf("%c", reach[i])
 				}
 				fmt.Printf("\n")
-			}
+			}*/
+
+			waitEnter()
+			continue
 
 			nextToTarget := -1
 			targets := make([]Creature, 0, len(reach))
