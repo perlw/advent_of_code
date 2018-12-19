@@ -104,9 +104,11 @@ type Creature interface {
 	GetPos() (int, int)
 	GetLPos() (int, int)
 	GetPower() int
+	SetPower(int)
 	GetTile() *TileDef
 	Move(int, int)
 	Hurt(int)
+	Clone() Creature
 }
 
 func NewCreature(tileID TileID, x, y int) Creature {
@@ -156,6 +158,10 @@ func (e *Elf) GetPower() int {
 	return e.Power
 }
 
+func (e *Elf) SetPower(power int) {
+	e.Power = power
+}
+
 func (e *Elf) GetTile() *TileDef {
 	return e.Tile
 }
@@ -168,6 +174,18 @@ func (e *Elf) Move(dx, dy int) {
 
 func (e *Elf) Hurt(dmg int) {
 	e.Hp -= dmg
+}
+
+func (e *Elf) Clone() Creature {
+	return &Elf{
+		X:     e.X,
+		Y:     e.Y,
+		LX:    e.LX,
+		LY:    e.LY,
+		Hp:    e.Hp,
+		Power: e.Power,
+		Tile:  e.Tile,
+	}
 }
 
 type Goblin struct {
@@ -206,6 +224,10 @@ func (g *Goblin) GetPower() int {
 	return g.Power
 }
 
+func (g *Goblin) SetPower(power int) {
+	g.Power = power
+}
+
 func (g *Goblin) GetTile() *TileDef {
 	return g.Tile
 }
@@ -218,6 +240,18 @@ func (g *Goblin) Move(dx, dy int) {
 
 func (g *Goblin) Hurt(dmg int) {
 	g.Hp -= dmg
+}
+
+func (g *Goblin) Clone() Creature {
+	return &Goblin{
+		X:     g.X,
+		Y:     g.Y,
+		LX:    g.LX,
+		LY:    g.LY,
+		Hp:    g.Hp,
+		Power: g.Power,
+		Tile:  g.Tile,
+	}
 }
 
 var GridWidth int
@@ -710,6 +744,40 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 	}
 }
 
+func (p *Puzzle) Solution2(pretty bool) (int, int) {
+	creatures := make([]Creature, len(p.Creatures))
+	for t := range p.Creatures {
+		cx, cy := p.Creatures[t].GetPos()
+		creatures[t] = NewCreature(p.Creatures[t].GetTile().ID, cx, cy)
+	}
+	pow := 4
+	for {
+		for t := range p.Creatures {
+			cx, cy := creatures[t].GetPos()
+			p.Creatures[t] = NewCreature(creatures[t].GetTile().ID, cx, cy)
+		}
+		elves := Creatures(p.Creatures).Filter(TileIDElf)
+		for _, e := range elves {
+			e.SetPower(pow)
+		}
+		turns, hp := p.Solution1(true)
+		elves = Creatures(p.Creatures).Filter(TileIDElf)
+		alive := 0
+		for _, e := range elves {
+			if e.GetHp() > 0 {
+				alive++
+			}
+		}
+		if alive >= len(elves) {
+			fmt.Println(pow, turns, hp, turns*hp)
+			p.PrintState()
+			waitEnter()
+			return turns, hp
+		}
+		pow++
+	}
+}
+
 func (p *Puzzle) PrintState() {
 	for y := 0; y < GridWidth; y++ {
 		for x := 0; x < GridWidth; x++ {
@@ -785,5 +853,7 @@ func main() {
 	p.PrintState()
 	turns, hp := p.Solution1(true)
 	p.PrintState()
+
+	turns, hp = p.Solution2(true)
 	fmt.Println(turns, hp, turns*hp)
 }
