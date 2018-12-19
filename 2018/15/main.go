@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/fatih/color"
 )
@@ -343,47 +344,155 @@ func (p *Puzzle) floodFillReach(sx, sy int, creature Creature) []rune {
 	return reach
 }
 
-type Path struct {
+func printRuneGrid(grid []rune) {
+	for y := 0; y < GridWidth; y++ {
+		for x := 0; x < GridWidth; x++ {
+			i := (y * GridWidth) + x
+			r := grid[i]
+
+			switch r {
+			case 0:
+				r = 'S'
+			case 253:
+				r = ' '
+			case 254:
+				r = '.'
+			case 255:
+				r = 'T'
+			case 999:
+				r = 'o'
+			default:
+				if r > 255 {
+					r = '*'
+				} else {
+					r = '+'
+				}
+			}
+
+			fmt.Printf("%c", r)
+		}
+		fmt.Printf("\n")
+	}
+	for t := 0; t < 42; t++ {
+		fmt.Printf("\n")
+	}
 }
 
-type Step struct {
-}
-
-func (p *Puzzle) djikstra(sx, sy int, targets []Creature) []Path {
+func (p *Puzzle) djikstra(sx, sy int, targets []Creature) {
 	for _, c := range targets {
-		unvisited := make([]rune, len(p.World))
+		cx, cy := c.GetPos()
+		grid := make([]rune, len(p.World))
 		for y := 0; y < GridWidth; y++ {
 			for x := 0; x < GridWidth; x++ {
 				i := (y * GridWidth) + x
 				if x == sx && y == sy {
-					unvisited[i] = 'S'
+					grid[i] = 0
 					continue
 				}
-				cx, cy := c.GetPos()
 				if x == cx && y == cy {
-					unvisited[i] = 'T'
+					grid[i] = 255
 					continue
 				}
 				if p.World[i].Def.Char == '.' {
-					unvisited[i] = '.'
+					grid[i] = 254
 					continue
 				}
-				unvisited[i] = ' '
+				grid[i] = 253
 			}
 		}
+		printRuneGrid(grid)
+		waitEnter()
 
-		current := (sy * GridWidth) + sx
-
-		for y := 0; y < GridWidth; y++ {
-			for x := 0; x < GridWidth; x++ {
-				i := (y * GridWidth) + x
-				fmt.Printf("%c", unvisited[i])
+		source := (sy * GridWidth) + sx
+		target := (cy * GridWidth) + cx
+		current := source
+		found := false
+		for {
+			// Calc neighbor scores
+			// This "should" be safe since it can never reach the bounds of the map
+			up := current - GridWidth
+			dn := current + GridWidth
+			lt := current - 1
+			rt := current + 1
+			if up == target || dn == target || lt == target || rt == target {
+				fmt.Println("found target")
+				found = true
+				grid[current] += 256
+				current = target
+				break
 			}
-			fmt.Printf("\n")
+
+			if grid[up] == 254 {
+				grid[up] = grid[current] + 1
+			}
+			if grid[dn] == 254 {
+				grid[dn] = grid[current] + 1
+			}
+			if grid[lt] == 254 {
+				grid[lt] = grid[current] + 1
+			}
+			if grid[rt] == 254 {
+				grid[rt] = grid[current] + 1
+			}
+			grid[current] += 256
+
+			// Choose neighbor
+			lowest := rune(253)
+			for i, score := range grid {
+				if score < lowest {
+					current = i
+					lowest = score
+				}
+			}
+			if lowest == 253 {
+				fmt.Println("END, no match")
+				break
+			}
+
+			printRuneGrid(grid)
+			// waitEnter()
+			time.Sleep(10 * time.Millisecond)
 		}
+
+		waitEnter()
+
+		if found {
+			for {
+				// Choose neighbor
+				lowest := rune(998)
+				up := current - GridWidth
+				dn := current + GridWidth
+				lt := current - 1
+				rt := current + 1
+				if up == source || dn == source || lt == source || rt == source {
+					fmt.Println("found path")
+					break
+				}
+				if grid[up] > 255 && grid[up] < lowest {
+					lowest = grid[up]
+					current = up
+				}
+				if grid[dn] > 255 && grid[dn] < lowest {
+					lowest = grid[dn]
+					current = dn
+				}
+				if grid[lt] > 255 && grid[lt] < lowest {
+					lowest = grid[lt]
+					current = lt
+				}
+				if grid[rt] > 255 && grid[rt] < lowest {
+					lowest = grid[rt]
+					current = rt
+				}
+				grid[current] = 999
+
+				printRuneGrid(grid)
+				//waitEnter()
+				time.Sleep(10 * time.Millisecond)
+			}
+		}
+		waitEnter()
 	}
-
-	return nil
 }
 
 type ByCoord []Creature
