@@ -409,9 +409,10 @@ func (g *GridToGIF) Generate(filepath string) error {
 		color.RGBA{0xff, 0xff, 0xff, 0xff}, // Visited
 		color.RGBA{0xff, 0x99, 0x0, 0xff},  // Path home
 	}
-	size := image.Rect(0, 0, 256, 256)
+	size := image.Rect(0, 0, 32, 32)
 	images := make([]*image.Paletted, 0, 100)
 	delays := make([]int, 0, 100)
+	disposals := make([]byte, 0, 100)
 	for _, grid := range g.grid {
 		image := image.NewPaletted(size, palette)
 
@@ -440,16 +441,18 @@ func (g *GridToGIF) Generate(filepath string) error {
 						col = palette[4]
 					}
 				}
-				for py := 0; py < 8; py++ {
-					for px := 0; px < 8; px++ {
+				/*for py := 0; py < 8; py++ {
+					for px := 0; px < 8; px++ {(
 						image.Set((x*8)+px, (y*8)+py, col)
 					}
-				}
+				}*/
+				image.Set(x, y, col)
 			}
 		}
 
 		images = append(images, image)
 		delays = append(delays, 10)
+		disposals = append(disposals, gif.DisposalPrevious)
 	}
 
 	f, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE, 0666)
@@ -458,15 +461,14 @@ func (g *GridToGIF) Generate(filepath string) error {
 	}
 	defer f.Close()
 	gif.EncodeAll(f, &gif.GIF{
-		Image: images,
-		Delay: delays,
+		Image:    images,
+		Delay:    delays,
+		Disposal: disposals,
 	})
 	return nil
 }
 
-func (p *Puzzle) djikstra(sx, sy int, targets []Creature) {
-	gifGen := NewGridToGIF(GridWidth)
-
+func (p *Puzzle) djikstra(sx, sy int, targets []Creature, gifGen *GridToGIF) {
 	for _, c := range targets {
 		cx, cy := c.GetPos()
 		grid := make([]rune, len(p.World))
@@ -583,10 +585,6 @@ func (p *Puzzle) djikstra(sx, sy int, targets []Creature) {
 		}
 		//waitEnter()
 	}
-	fmt.Println("genning")
-	gifGen.Generate("out.gif")
-	fmt.Println("DONE")
-	waitEnter()
 }
 
 type ByCoord []Creature
@@ -629,6 +627,7 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 		//p.PrintState()
 		//waitEnter()
 
+		gifGen := NewGridToGIF(GridWidth)
 		for t, c := range p.Creatures {
 			if c.GetHp() < 1 {
 				continue
@@ -671,7 +670,7 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 				case TileIDGoblin:
 					targetID = TileIDElf
 				}
-				p.djikstra(cx, cy, Creatures(p.Creatures).Filter(targetID))
+				p.djikstra(cx, cy, Creatures(p.Creatures).Filter(targetID), gifGen)
 			}
 			/* for y := 0; y < GridWidth; y++ {
 				for x := 0; x < GridWidth; x++ {
@@ -681,7 +680,6 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 				fmt.Printf("\n")
 			}*/
 
-			waitEnter()
 			continue
 
 			nextToTarget := -1
@@ -835,6 +833,10 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 			/*p.PrintState()
 			waitEnter()*/
 		}
+		fmt.Println("genning")
+		gifGen.Generate("out.gif")
+		fmt.Println("DONE")
+		return 0, 0
 		turn++
 	}
 }
