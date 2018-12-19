@@ -3,11 +3,14 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"image"
+	"image/color"
+	"image/gif"
 	"os"
 	"sort"
-	"time"
 
-	"github.com/fatih/color"
+	col "github.com/fatih/color"
+	"github.com/pkg/errors"
 )
 
 func waitEnter() {
@@ -45,7 +48,7 @@ func (t TileID) String() string {
 type TileDef struct {
 	ID    TileID
 	Char  rune
-	Color *color.Color
+	Color *col.Color
 }
 
 func (t TileDef) String() string {
@@ -56,17 +59,17 @@ var TileMap = map[TileID]*TileDef{
 	TileIDUnknown: &TileDef{
 		ID:    TileIDUnknown,
 		Char:  '?',
-		Color: color.New(color.FgBlack).Add(color.BgMagenta),
+		Color: col.New(col.FgBlack).Add(col.BgMagenta),
 	},
 	TileIDGround: &TileDef{
 		ID:    TileIDGround,
 		Char:  '.',
-		Color: color.New(color.FgYellow),
+		Color: col.New(col.FgYellow),
 	},
 	TileIDWall: &TileDef{
 		ID:    TileIDWall,
 		Char:  '#',
-		Color: color.New(color.FgHiWhite),
+		Color: col.New(col.FgHiWhite),
 	},
 }
 
@@ -74,12 +77,12 @@ var CreatureMap = map[TileID]*TileDef{
 	TileIDElf: &TileDef{
 		ID:    TileIDElf,
 		Char:  'E',
-		Color: color.New(color.FgRed),
+		Color: col.New(col.FgRed),
 	},
 	TileIDGoblin: &TileDef{
 		ID:    TileIDGoblin,
 		Char:  'G',
-		Color: color.New(color.FgGreen),
+		Color: col.New(col.FgGreen),
 	},
 }
 
@@ -378,7 +381,92 @@ func printRuneGrid(grid []rune) {
 	}
 }
 
+type GridToGIF struct {
+	gridWidth int
+	grid      [][]rune
+}
+
+func NewGridToGIF(width int) *GridToGIF {
+	return &GridToGIF{
+		gridWidth: width,
+		grid:      make([][]rune, 0, 100),
+	}
+}
+
+func (g *GridToGIF) AddFrame(grid []rune) {
+	gr := make([]rune, len(grid))
+	copy(gr, grid)
+	g.grid = append(g.grid, gr)
+}
+
+func (g *GridToGIF) Generate(filepath string) error {
+	palette := []color.Color{
+		color.RGBA{0x0, 0x0, 0x0, 0xff},    // Empty
+		color.RGBA{0x0, 0xff, 0x0, 0xff},   // Start
+		color.RGBA{0xff, 0x0, 0x0, 0xff},   // End
+		color.RGBA{0x66, 0x66, 0x66, 0xff}, // Ground
+		color.RGBA{0x99, 0x99, 0x99, 0xff}, // Potential
+		color.RGBA{0xff, 0xff, 0xff, 0xff}, // Visited
+		color.RGBA{0xff, 0x99, 0x0, 0xff},  // Path home
+	}
+	size := image.Rect(0, 0, 256, 256)
+	images := make([]*image.Paletted, 0, 100)
+	delays := make([]int, 0, 100)
+	for _, grid := range g.grid {
+		image := image.NewPaletted(size, palette)
+
+		for y := 0; y < g.gridWidth; y++ {
+			for x := 0; x < g.gridWidth; x++ {
+				i := (y * g.gridWidth) + x
+
+				col := palette[0]
+				switch grid[i] {
+				case 0:
+					fallthrough
+				case 256:
+					col = palette[1]
+				case 253:
+					col = palette[0]
+				case 254:
+					col = palette[3]
+				case 255:
+					col = palette[2]
+				case 999:
+					col = palette[6]
+				default:
+					if grid[i] > 255 {
+						col = palette[5]
+					} else {
+						col = palette[4]
+					}
+				}
+				for py := 0; py < 8; py++ {
+					for px := 0; px < 8; px++ {
+						image.Set((x*8)+px, (y*8)+py, col)
+					}
+				}
+			}
+		}
+
+		images = append(images, image)
+		delays = append(delays, 10)
+	}
+
+	f, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE, 0666)
+	if err != nil {
+		return errors.Wrap(err, "could not open output file")
+	}
+	defer f.Close()
+	gif.EncodeAll(f, &gif.GIF{
+		Image: images,
+		Delay: delays,
+	})
+	return nil
+}
+
 func (p *Puzzle) djikstra(sx, sy int, targets []Creature) {
+	gifGen := NewGridToGIF(GridWidth)
+
 	for _, c := range targets {
 		cx, cy := c.GetPos()
 		grid := make([]rune, len(p.World))
@@ -400,8 +488,8 @@ func (p *Puzzle) djikstra(sx, sy int, targets []Creature) {
 				grid[i] = 253
 			}
 		}
-		printRuneGrid(grid)
-		waitEnter()
+		//printRuneGrid(grid)
+		//waitEnter()
 
 		source := (sy * GridWidth) + sx
 		target := (cy * GridWidth) + cx
@@ -449,12 +537,13 @@ func (p *Puzzle) djikstra(sx, sy int, targets []Creature) {
 				break
 			}
 
-			printRuneGrid(grid)
+			gifGen.AddFrame(grid)
+			// printRuneGrid(grid)
 			// waitEnter()
-			time.Sleep(10 * time.Millisecond)
+			//time.Sleep(10 * time.Millisecond)
 		}
 
-		waitEnter()
+		//waitEnter()
 
 		if found {
 			for {
@@ -486,13 +575,18 @@ func (p *Puzzle) djikstra(sx, sy int, targets []Creature) {
 				}
 				grid[current] = 999
 
-				printRuneGrid(grid)
+				gifGen.AddFrame(grid)
+				//printRuneGrid(grid)
 				//waitEnter()
-				time.Sleep(10 * time.Millisecond)
+				//time.Sleep(10 * time.Millisecond)
 			}
 		}
-		waitEnter()
+		//waitEnter()
 	}
+	fmt.Println("genning")
+	gifGen.Generate("out.gif")
+	fmt.Println("DONE")
+	waitEnter()
 }
 
 type ByCoord []Creature
@@ -515,8 +609,8 @@ func (c ByCoord) Less(i, j int) bool {
 
 type Point []int
 
-var aliveColor = color.New(color.FgGreen)
-var deadColor = color.New(color.FgRed)
+var aliveColor = col.New(col.FgGreen)
+var deadColor = col.New(col.FgRed)
 
 func (p *Puzzle) Solution1(pretty bool) (int, int) {
 	turn := 1
