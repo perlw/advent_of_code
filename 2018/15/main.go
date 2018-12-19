@@ -8,7 +8,6 @@ import (
 	"image/gif"
 	"os"
 	"sort"
-	"time"
 
 	col "github.com/fatih/color"
 	"github.com/pkg/errors"
@@ -241,111 +240,17 @@ func (c Creatures) Filter(id TileID) []Creature {
 	return creatures
 }
 
-type FloodDir int
-
-const (
-	FloodDirN FloodDir = iota
-	FloodDirS
-	FloodDirW
-	FloodDirE
-)
-
-func abs(v int) int {
-	if v < 0 {
-		v = -v
-	}
-	return v
-}
-
-func (p *Puzzle) flood(reach []rune, sx, sy int, dir FloodDir, creature Creature) {
-	switch dir {
-	case FloodDirN:
-		sy--
-	case FloodDirS:
-		sy++
-	case FloodDirW:
-		sx--
-	case FloodDirE:
-		sx++
-	}
-
-	if sx < 0 || sy < 0 || sx > GridWidth-1 || sy > GridWidth-1 {
-		return
-	}
-
-	lx, ly := creature.GetLPos()
-	if sx == lx && sy == ly {
-		return
-	}
-
-	i := (sy * GridWidth) + sx
-	if reach[i] == '+' || p.World[i].Def.Char == '#' {
-		return
-	}
-	close := false
-	for _, c := range p.Creatures {
-		if c.GetHp() < 1 {
+func (c Creatures) Find(x, y int) Creature {
+	for _, cc := range c {
+		if cc.GetHp() <= 0 {
 			continue
 		}
-
-		cx, cy := c.GetPos()
-		if sx == cx && sy == cy {
-			if c.GetTile().ID != creature.GetTile().ID {
-				reach[i] = 'X'
-			} else {
-				reach[i] = '-'
-			}
-			return
-		}
-		if c.GetTile().ID != creature.GetTile().ID {
-			d := abs(cx-sx) + abs(cy-sy)
-			if d < 2 {
-				close = true
-			}
+		cx, cy := cc.GetPos()
+		if cx == x && cy == y {
+			return cc
 		}
 	}
-
-	if close {
-		reach[i] = '!'
-	} else {
-		reach[i] = '+'
-	}
-
-	switch dir {
-	case FloodDirN:
-		p.flood(reach, sx, sy, FloodDirN, creature)
-		p.flood(reach, sx, sy, FloodDirW, creature)
-		p.flood(reach, sx, sy, FloodDirE, creature)
-	case FloodDirS:
-		p.flood(reach, sx, sy, FloodDirS, creature)
-		p.flood(reach, sx, sy, FloodDirW, creature)
-		p.flood(reach, sx, sy, FloodDirE, creature)
-	case FloodDirW:
-		p.flood(reach, sx, sy, FloodDirN, creature)
-		p.flood(reach, sx, sy, FloodDirS, creature)
-		p.flood(reach, sx, sy, FloodDirW, creature)
-	case FloodDirE:
-		p.flood(reach, sx, sy, FloodDirN, creature)
-		p.flood(reach, sx, sy, FloodDirS, creature)
-		p.flood(reach, sx, sy, FloodDirE, creature)
-	}
-}
-
-func (p *Puzzle) floodFillReach(sx, sy int, creature Creature) []rune {
-	reach := make([]rune, GridSize)
-	for y := 0; y < GridWidth; y++ {
-		for x := 0; x < GridWidth; x++ {
-			i := (y * GridWidth) + x
-			reach[i] = ' '
-		}
-	}
-
-	p.flood(reach, sx, sy, FloodDirN, creature)
-	p.flood(reach, sx, sy, FloodDirS, creature)
-	p.flood(reach, sx, sy, FloodDirW, creature)
-	p.flood(reach, sx, sy, FloodDirE, creature)
-
-	return reach
+	return nil
 }
 
 func printRuneGrid(grid []rune) {
@@ -485,6 +390,9 @@ func (p *Puzzle) djikstra(sx, sy int, friendlies []Creature, targets []Creature,
 				continue
 			}
 			for _, c := range friendlies {
+				if c.GetHp() <= 0 {
+					continue
+				}
 				cx, cy := c.GetPos()
 				if x == cx && y == cy {
 					grid[i] = 252
@@ -492,6 +400,9 @@ func (p *Puzzle) djikstra(sx, sy int, friendlies []Creature, targets []Creature,
 				}
 			}
 			for _, c := range targets {
+				if c.GetHp() <= 0 {
+					continue
+				}
 				cx, cy := c.GetPos()
 				if x == cx && y == cy {
 					grid[i] = 255
@@ -517,10 +428,13 @@ func (p *Puzzle) djikstra(sx, sy int, friendlies []Creature, targets []Creature,
 		lt := current - 1
 		rt := current + 1
 		for _, c := range targets {
+			if c.GetHp() <= 0 {
+				continue
+			}
 			cx, cy := c.GetPos()
 			target := (cy * GridWidth) + cx
 			if up == target || dn == target || lt == target || rt == target {
-				fmt.Println("found target")
+				//fmt.Println("found target")
 				found = true
 				grid[current] += 256
 				current = target
@@ -554,7 +468,7 @@ func (p *Puzzle) djikstra(sx, sy int, friendlies []Creature, targets []Creature,
 			}
 		}
 		if lowest == 252 {
-			fmt.Println("END, no match")
+			// fmt.Println("END, no match")
 			return -1, -1
 		}
 
@@ -572,7 +486,7 @@ func (p *Puzzle) djikstra(sx, sy int, friendlies []Creature, targets []Creature,
 			lt := current - 1
 			rt := current + 1
 			if up == source || dn == source || lt == source || rt == source {
-				fmt.Println("found path", current%GridWidth, current/GridWidth)
+				// fmt.Println("found path", current%GridWidth, current/GridWidth)
 				return current % GridWidth, current / GridWidth
 			}
 			if grid[up] > 255 && grid[up] < lowest {
@@ -600,6 +514,49 @@ func (p *Puzzle) djikstra(sx, sy int, friendlies []Creature, targets []Creature,
 		}
 	}
 	return -1, -1
+}
+
+func (p *Puzzle) getCloseTarget(creature Creature, targets Creatures) (Creature, bool) {
+	cx, cy := creature.GetPos()
+
+	up := targets.Find(cx, cy-1)
+	dn := targets.Find(cx, cy+1)
+	lt := targets.Find(cx-1, cy)
+	rt := targets.Find(cx+1, cy)
+
+	// By health first, then reading order
+	var target Creature
+	lowest := 9999
+	if up != nil {
+		hp := up.GetHp()
+		if hp < lowest {
+			lowest = hp
+			target = up
+		}
+	}
+	if lt != nil {
+		hp := lt.GetHp()
+		if hp < lowest {
+			lowest = hp
+			target = lt
+		}
+	}
+	if rt != nil {
+		hp := rt.GetHp()
+		if hp < lowest {
+			lowest = hp
+			target = rt
+		}
+	}
+	if dn != nil {
+		hp := dn.GetHp()
+		if hp < lowest {
+			lowest = hp
+			target = dn
+		}
+	}
+
+	return target, target != nil
 }
 
 type ByCoord []Creature
@@ -640,8 +597,6 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 			col.Printf("%s (%dhp),", c.GetTile().ID, c.GetHp())
 		}
 		fmt.Printf("\n")
-		p.PrintState()
-		waitEnter()
 
 		for t, c := range p.Creatures {
 			if c.GetHp() < 1 {
@@ -662,65 +617,97 @@ func (p *Puzzle) Solution1(pretty bool) (int, int) {
 				}
 			}
 			if aliveGoblins == 0 || aliveElves == 0 {
-				score := 0
+				hp := 0
 				for _, c := range p.Creatures {
 					if c.GetHp() < 1 {
 						continue
 					}
-					score += c.GetHp()
+					hp += c.GetHp()
 				}
-				return score, score * (turn - 1)
+				fmt.Println("genning gif")
+				gifGen.Generate("out.gif")
+				fmt.Println("DONE")
+				return turn - 1, hp
 			}
 
 			fmt.Printf("\n=== #%d, %s ===\n", t, c.GetTile().ID)
 
 			fmt.Printf("\n")
 			cx, cy := c.GetPos()
-			nextToTarget := -1
+			targetID := TileIDUnknown
+			switch c.GetTile().ID {
+			case TileIDElf:
+				targetID = TileIDGoblin
+			case TileIDGoblin:
+				targetID = TileIDElf
+			}
 
-			if nextToTarget < 0 {
-				targetID := TileIDUnknown
-				switch c.GetTile().ID {
-				case TileIDElf:
-					targetID = TileIDGoblin
-				case TileIDGoblin:
-					targetID = TileIDElf
-				}
+			target, ok := p.getCloseTarget(c, Creatures(p.Creatures).Filter(targetID))
+			if !ok {
 				tx, ty := p.djikstra(cx, cy, Creatures(p.Creatures).Filter(c.GetTile().ID), Creatures(p.Creatures).Filter(targetID), gifGen)
 				if tx < 0 || ty < 0 {
 					fmt.Printf("#%d, %s have no targets and is confused...\n", t, c.GetTile().ID)
 					continue
 				}
 				c.Move(tx-cx, ty-cy)
-
-				// New target check due to move
-				p.PrintState()
-				waitEnter()
 			}
 
-			if nextToTarget > -1 {
-				fmt.Printf("#%d, %s attacks #%d, %s: ", t, c.GetTile().ID, nextToTarget, p.Creatures[nextToTarget].GetTile().ID)
-				p.Creatures[nextToTarget].Hurt(c.GetPower())
-				fmt.Printf("#%d, %s takes %ddmg ", nextToTarget, p.Creatures[nextToTarget].GetTile().ID, c.GetPower())
-				if p.Creatures[nextToTarget].GetHp() < 1 {
+			target, ok = p.getCloseTarget(c, Creatures(p.Creatures).Filter(targetID))
+			if ok {
+				fmt.Printf("%s attacks %s: ", c.GetTile().ID, target.GetTile().ID)
+				target.Hurt(c.GetPower())
+				fmt.Printf("%s takes %ddmg ", target.GetTile().ID, c.GetPower())
+				if target.GetHp() < 1 {
 					fmt.Printf("and dies...")
 				} else {
-					fmt.Printf("and have %dHP left", p.Creatures[nextToTarget].GetHp())
+					fmt.Printf("and have %dHP left", target.GetHp())
 				}
 				fmt.Printf("\n")
 			}
 
-			//gifGen.AddFrame(p.World)
-			p.PrintState()
-			time.Sleep(10 * time.Millisecond)
+			{
+				world := make([]rune, len(p.World))
+				elves := Creatures(p.Creatures).Filter(TileIDElf)
+				goblins := Creatures(p.Creatures).Filter(TileIDGoblin)
+				for y := 0; y < GridWidth; y++ {
+				row:
+					for x := 0; x < GridWidth; x++ {
+						i := (y * GridWidth) + x
+						for _, c := range goblins {
+							if c.GetHp() <= 0 {
+								continue
+							}
+							cx, cy := c.GetPos()
+							if x == cx && y == cy {
+								world[i] = 252
+								continue row
+							}
+						}
+						for _, c := range elves {
+							if c.GetHp() <= 0 {
+								continue
+							}
+							cx, cy := c.GetPos()
+							if x == cx && y == cy {
+								world[i] = 255
+								continue row
+							}
+						}
+						if p.World[i].Def.Char == '.' {
+							world[i] = 254
+							continue
+						}
+						world[i] = 253
+					}
+				}
+				gifGen.AddFrame(world)
+			}
+			// p.PrintState()
+			// time.Sleep(10 * time.Millisecond)
 			/*waitEnter()*/
 		}
 		turn++
 	}
-	fmt.Println("genning")
-	gifGen.Generate("out.gif")
-	fmt.Println("DONE")
-	return 0, 0
 }
 
 func (p *Puzzle) PrintState() {
@@ -795,7 +782,8 @@ func main() {
 	GridWidth = lines
 	GridSize = GridWidth * GridWidth
 
-	fmt.Println(p.Solution1(true))
-
 	p.PrintState()
+	turns, hp := p.Solution1(true)
+	p.PrintState()
+	fmt.Println(turns, hp, turns*hp)
 }
