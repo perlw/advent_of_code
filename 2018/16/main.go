@@ -177,7 +177,8 @@ func sliceEqual(a, b []int) bool {
 }
 
 type Puzzle1 struct {
-	Tests []Test
+	Tests        []Test
+	Instructions [16][]string
 }
 
 func (p *Puzzle1) Run() {
@@ -204,6 +205,21 @@ func (p *Puzzle1) Run() {
 			if sliceEqual(registers[:], test.After[:]) {
 				fmt.Printf(" OK")
 				potentials++
+
+				o := test.Op[0]
+				if p.Instructions[o] == nil {
+					p.Instructions[o] = make([]string, 0, 10)
+				}
+				found := false
+				for _, i := range p.Instructions[o] {
+					if i == op.Name {
+						found = true
+						break
+					}
+				}
+				if !found {
+					p.Instructions[o] = append(p.Instructions[test.Op[0]], op.Name)
+				}
 			}
 			fmt.Printf("\n")
 		}
@@ -213,6 +229,10 @@ func (p *Puzzle1) Run() {
 		}
 	}
 	fmt.Println("\nTotal samples with more >=3 potentials:", total)
+
+	for t, i := range p.Instructions {
+		fmt.Printf("%d -> %+v\n", t, i)
+	}
 }
 
 func main() {
