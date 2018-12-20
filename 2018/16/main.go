@@ -176,12 +176,16 @@ func sliceEqual(a, b []int) bool {
 	return true
 }
 
-type Puzzle1 struct {
-	Tests        []Test
-	Instructions [16][]string
+type Puzzle struct {
+	Tests      []Test
+	Potentials [16][]string
+
+	Registers [4]int
+	Program   []int
+	PC        int
 }
 
-func (p *Puzzle1) Run() {
+func (p *Puzzle) IdentifyPotentials() {
 	total := 0
 	for t, test := range p.Tests {
 		potentials := 0
@@ -207,18 +211,18 @@ func (p *Puzzle1) Run() {
 				potentials++
 
 				o := test.Op[0]
-				if p.Instructions[o] == nil {
-					p.Instructions[o] = make([]string, 0, 10)
+				if p.Potentials[o] == nil {
+					p.Potentials[o] = make([]string, 0, 10)
 				}
 				found := false
-				for _, i := range p.Instructions[o] {
+				for _, i := range p.Potentials[o] {
 					if i == op.Name {
 						found = true
 						break
 					}
 				}
 				if !found {
-					p.Instructions[o] = append(p.Instructions[test.Op[0]], op.Name)
+					p.Potentials[o] = append(p.Potentials[test.Op[0]], op.Name)
 				}
 			}
 			fmt.Printf("\n")
@@ -230,46 +234,79 @@ func (p *Puzzle1) Run() {
 	}
 	fmt.Println("\nTotal samples with more >=3 potentials:", total)
 
-	for t, i := range p.Instructions {
+	for t, i := range p.Potentials {
 		fmt.Printf("%d -> %+v\n", t, i)
 	}
 }
 
+func (p *Puzzle) IdentifyInstructions() {
+}
+
+func (p *Puzzle) RunProgram() {
+}
+
+func (p *Puzzle) PrintRegisters() {
+	fmt.Println("Registers:", p.Registers)
+}
+
 func main() {
-	input, err := os.Open("input1.txt")
-	if err != nil {
-		panic(err.Error())
-	}
-	defer input.Close()
-	scanner := bufio.NewScanner(input)
+	p := Puzzle{}
 
-	p := Puzzle1{}
-	for scanner.Scan() {
-		test := Test{}
-		if err := scanner.Err(); err != nil {
+	{
+		input, err := os.Open("input1.txt")
+		if err != nil {
 			panic(err.Error())
 		}
-		fmt.Sscanf(scanner.Text(), "Before: [%d, %d, %d, %d]", &test.Before[0], &test.Before[1], &test.Before[2], &test.Before[3])
-		scanner.Scan()
-		if err := scanner.Err(); err != nil {
-			panic(err.Error())
-		}
-		fmt.Sscanf(scanner.Text(), "%d %d %d %d", &test.Op[0], &test.Op[1], &test.Op[2], &test.Op[3])
-		scanner.Scan()
-		if err := scanner.Err(); err != nil {
-			panic(err.Error())
-		}
-		fmt.Sscanf(scanner.Text(), "After: [%d, %d, %d, %d]", &test.After[0], &test.After[1], &test.After[2], &test.After[3])
-		p.Tests = append(p.Tests, test)
+		defer input.Close()
+		scanner := bufio.NewScanner(input)
 
-		scanner.Scan()
+		for scanner.Scan() {
+			test := Test{}
+			if err := scanner.Err(); err != nil {
+				panic(err.Error())
+			}
+			fmt.Sscanf(scanner.Text(), "Before: [%d, %d, %d, %d]", &test.Before[0], &test.Before[1], &test.Before[2], &test.Before[3])
+			scanner.Scan()
+			if err := scanner.Err(); err != nil {
+				panic(err.Error())
+			}
+			fmt.Sscanf(scanner.Text(), "%d %d %d %d", &test.Op[0], &test.Op[1], &test.Op[2], &test.Op[3])
+			scanner.Scan()
+			if err := scanner.Err(); err != nil {
+				panic(err.Error())
+			}
+			fmt.Sscanf(scanner.Text(), "After: [%d, %d, %d, %d]", &test.After[0], &test.After[1], &test.After[2], &test.After[3])
+			p.Tests = append(p.Tests, test)
+
+			scanner.Scan()
+			if err := scanner.Err(); err != nil {
+				panic(err.Error())
+			}
+		}
 		if err := scanner.Err(); err != nil {
 			panic(err.Error())
 		}
 	}
-	if err := scanner.Err(); err != nil {
-		panic(err.Error())
+	{
+		input, err := os.Open("input2.txt")
+		if err != nil {
+			panic(err.Error())
+		}
+		defer input.Close()
+		scanner := bufio.NewScanner(input)
+
+		for scanner.Scan() {
+			op := [4]int{}
+			fmt.Sscanf(scanner.Text(), "%d %d %d %d", &op[0], &op[1], &op[2], &op[3])
+			p.Program = append(p.Program, op[:]...)
+		}
+		if err := scanner.Err(); err != nil {
+			panic(err.Error())
+		}
 	}
 
-	p.Run()
+	p.IdentifyPotentials()
+	p.IdentifyInstructions()
+	p.RunProgram()
+	p.PrintRegisters()
 }
