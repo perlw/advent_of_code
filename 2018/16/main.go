@@ -280,6 +280,20 @@ func (p *Puzzle) IdentifyInstructions() {
 }
 
 func (p *Puzzle) RunProgram() {
+	for p.PC = 0; p.PC < len(p.Program); p.PC += 4 {
+		op := p.Program[p.PC : p.PC+4]
+		o := p.Instructions[op[0]]
+		a := op[1]
+		b := op[2]
+		c := op[3]
+		if o.A == ArgumentTypeRegister {
+			a = p.Registers[a]
+		}
+		if o.B == ArgumentTypeRegister {
+			b = p.Registers[b]
+		}
+		p.Registers[c] = o.Exe(a, b)
+	}
 }
 
 func (p *Puzzle) PrintRegisters() {
