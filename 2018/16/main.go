@@ -180,9 +180,10 @@ type Puzzle struct {
 	Tests      []Test
 	Potentials [16][]string
 
-	Registers [4]int
-	Program   []int
-	PC        int
+	Instructions [16]*Opcode
+	Registers    [4]int
+	Program      []int
+	PC           int
 }
 
 func (p *Puzzle) IdentifyPotentials() {
@@ -240,6 +241,42 @@ func (p *Puzzle) IdentifyPotentials() {
 }
 
 func (p *Puzzle) IdentifyInstructions() {
+	for {
+		found := false
+		for j, i := range p.Potentials {
+			if len(i) != 1 {
+				continue
+			}
+
+			op := i[0]
+			for u := range opcodes {
+				if opcodes[u].Name == op {
+					p.Instructions[j] = &opcodes[u]
+					break
+				}
+			}
+
+			for h, u := range p.Potentials {
+				for t, v := range u {
+					if v == op {
+						p.Potentials[h] = append(p.Potentials[h][:t], p.Potentials[h][t+1:]...)
+						break
+					}
+				}
+			}
+
+			found = true
+			break
+		}
+		if !found {
+			break
+		}
+	}
+
+	fmt.Println("\nIdentified:")
+	for t, i := range p.Instructions {
+		fmt.Printf("%02d -> %s\n", t, i.Name)
+	}
 }
 
 func (p *Puzzle) RunProgram() {
