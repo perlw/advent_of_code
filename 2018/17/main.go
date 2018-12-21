@@ -74,7 +74,7 @@ func (p *Puzzle) PrintState() {
 				sandColor.Printf("%c", r)
 			case '#':
 				clayColor.Printf("%c", r)
-			case '+', '|':
+			case '+', '|', '/', '\\':
 				fallingWaterColor.Printf("%c", r)
 			case '~':
 				stillWaterColor.Printf("%c", r)
@@ -86,7 +86,23 @@ func (p *Puzzle) PrintState() {
 	}
 }
 
-func (p *Puzzle) settle(x, y int) {
+func (p *Puzzle) flow(x, y int) bool {
+	for yy := y; yy < p.gridH; yy++ {
+		i := (yy * p.gridW) + x
+
+		r := p.grid[i]
+		switch r {
+		case '#', '~':
+			return p.settle(x, yy-1)
+		case '.':
+			p.grid[i] = '|'
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Puzzle) settle(x, y int) bool {
 	i := (y * p.gridW) + x
 	var u, v int
 	for t := 0; t < p.gridW; t++ {
@@ -100,6 +116,9 @@ func (p *Puzzle) settle(x, y int) {
 			break
 		}
 	}
+	if v == 0 {
+		v = p.gridW
+	}
 
 	fit := false
 	for t := 0; t < p.gridW; t++ {
@@ -107,16 +126,42 @@ func (p *Puzzle) settle(x, y int) {
 		r := i + t
 
 		if l >= u {
+			if p.grid[l+p.gridW] == '|' {
+				if p.flow(x-t, y) {
+					return true
+				}
+				break
+			}
 			if p.grid[l] == '.' {
 				p.grid[l] = '|'
 				fit = true
 				break
 			}
+			if p.grid[l+p.gridW] == '.' {
+				p.grid[l] = '/'
+				if p.flow(x-t, y) {
+					return true
+				}
+				break
+			}
 		}
 		if r <= v {
+			if p.grid[r+p.gridW] == '|' {
+				if p.flow(x+t, y) {
+					return true
+				}
+				break
+			}
 			if p.grid[r] == '.' {
 				p.grid[r] = '|'
 				fit = true
+				break
+			}
+			if p.grid[r+p.gridW] == '.' {
+				p.grid[r] = '\\'
+				if p.flow(x+t, y) {
+					return true
+				}
 				break
 			}
 		}
@@ -127,24 +172,8 @@ func (p *Puzzle) settle(x, y int) {
 			p.grid[t] = '~'
 		}
 	}
-}
 
-func (p *Puzzle) flow(x, y int) {
-	for y := 0; y < p.gridH; y++ {
-		i := (y * p.gridW) + x
-		// u := i - 1
-		// v := i + 1
-
-		r := p.grid[i]
-		switch r {
-		case '#', '~':
-			p.settle(x, y-1)
-			return
-		case '.':
-			p.grid[i] = '|'
-			return
-		}
-	}
+	return true
 }
 
 func (p *Puzzle) Sim() {
