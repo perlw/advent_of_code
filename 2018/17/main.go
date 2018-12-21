@@ -86,12 +86,76 @@ func (p *Puzzle) PrintState() {
 	}
 }
 
+func (p *Puzzle) settle(x, y int) {
+	i := (y * p.gridW) + x
+	var u, v int
+	for t := 0; t < p.gridW; t++ {
+		if u == 0 && p.grid[i-t] == '#' {
+			u = i - t + 1
+		}
+		if v == 0 && p.grid[i+t] == '#' {
+			v = i + t - 1
+		}
+		if u > 0 && v > 0 {
+			break
+		}
+	}
+
+	fit := false
+	for t := 0; t < p.gridW; t++ {
+		l := i - t
+		r := i + t
+
+		if l >= u {
+			if p.grid[l] == '.' {
+				p.grid[l] = '|'
+				fit = true
+				break
+			}
+		}
+		if r <= v {
+			if p.grid[r] == '.' {
+				p.grid[r] = '|'
+				fit = true
+				break
+			}
+		}
+	}
+
+	if !fit {
+		for t := u; t <= v; t++ {
+			p.grid[t] = '~'
+		}
+	}
+}
+
+func (p *Puzzle) flow(x, y int) {
+	for y := 0; y < p.gridH; y++ {
+		i := (y * p.gridW) + x
+		// u := i - 1
+		// v := i + 1
+
+		r := p.grid[i]
+		switch r {
+		case '#', '~':
+			p.settle(x, y-1)
+			return
+		case '.':
+			p.grid[i] = '|'
+			return
+		}
+	}
+}
+
 func (p *Puzzle) Sim() {
+	p.PrintState()
+	fmt.Printf("\n")
 	for {
+		p.flow(500, 0)
+
 		p.PrintState()
 		fmt.Printf("\n")
-
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 }
 
