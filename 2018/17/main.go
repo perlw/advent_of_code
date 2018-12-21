@@ -102,15 +102,33 @@ func (p *Puzzle) flow(x, y int) bool {
 	return false
 }
 
+func abs(a int) int {
+	if a < 0 {
+		return a
+	}
+	return a
+}
+
 func (p *Puzzle) settle(x, y int) bool {
 	i := (y * p.gridW) + x
 	var u, v int
+	var wu, wv int
 	for t := 0; t < p.gridW; t++ {
 		if u == 0 && p.grid[i-t] == '#' {
 			u = i - t + 1
 		}
+		if p.grid[i-t] == '|' {
+			wu = i - t - 1
+		} else if p.grid[i-t] == '/' {
+			wu = i - t
+		}
 		if v == 0 && p.grid[i+t] == '#' {
 			v = i + t - 1
+		}
+		if p.grid[i+t] == '|' {
+			wv = i + t + 1
+		} else if p.grid[i+t] == '\\' {
+			wv = i + t
 		}
 		if u > 0 && v > 0 {
 			break
@@ -119,50 +137,42 @@ func (p *Puzzle) settle(x, y int) bool {
 	if v == 0 {
 		v = p.gridW
 	}
+	if wu < u {
+		wu = 9999
+	}
+	if wv > v {
+		wv = 9999
+	}
 
 	fit := false
-	for t := 0; t < p.gridW; t++ {
-		l := i - t
-		r := i + t
-
-		if l >= u {
-			if p.grid[l+p.gridW] == '|' {
-				if p.flow(x-t, y) {
-					return true
-				}
-				break
-			}
-			if p.grid[l] == '.' {
-				p.grid[l] = '|'
+	du := abs(i - wu)
+	dv := abs(wv - i)
+	if wu <= v || wv <= v {
+		if du >= 0 && du <= dv {
+			if p.grid[wu+p.gridW] == '.' {
+				p.grid[wu] = '/'
+				p.grid[wu+p.gridW] = '|'
 				fit = true
-				break
-			}
-			if p.grid[l+p.gridW] == '.' {
-				p.grid[l] = '/'
-				if p.flow(x-t, y) {
-					return true
-				}
-				break
-			}
-		}
-		if r <= v {
-			if p.grid[r+p.gridW] == '|' {
-				if p.flow(x+t, y) {
-					return true
-				}
-				break
-			}
-			if p.grid[r] == '.' {
-				p.grid[r] = '|'
+			} else if p.grid[wu+p.gridW] == '.' {
+				p.flow(wu%p.gridW, y+1)
 				fit = true
-				break
+			} else {
+				p.grid[wu] = '|'
+				fit = true
 			}
-			if p.grid[r+p.gridW] == '.' {
-				p.grid[r] = '\\'
-				if p.flow(x+t, y) {
-					return true
+		} else if dv >= 0 {
+			if p.grid[wv+p.gridW] == '.' {
+				p.grid[wv] = '\\'
+				p.grid[wv+p.gridW] = '|'
+				fit = true
+			} else if p.grid[wv+p.gridW] == '|' {
+				if !p.flow(wv%p.gridW, y+1) {
+					fmt.Println(du)
 				}
-				break
+				fit = true
+			} else {
+				p.grid[wv] = '|'
+				fit = true
 			}
 		}
 	}
@@ -171,6 +181,7 @@ func (p *Puzzle) settle(x, y int) bool {
 		for t := u; t <= v; t++ {
 			p.grid[t] = '~'
 		}
+		return false
 	}
 
 	return true
@@ -184,7 +195,7 @@ func (p *Puzzle) Sim() {
 
 		p.PrintState()
 		fmt.Printf("\n")
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
