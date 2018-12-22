@@ -9,6 +9,7 @@ import (
 )
 
 func waitEnter() {
+	fmt.Printf("Press ENTER to continue\n")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
@@ -33,6 +34,25 @@ type Puzzle struct {
 	gridSize     int
 	grid         []rune
 	numLines     int
+}
+
+func NewPuzzle() *Puzzle {
+	input, err := os.Open("input.txt")
+	if err != nil {
+		panic(err.Error())
+	}
+	defer input.Close()
+	scanner := bufio.NewScanner(input)
+
+	p := Puzzle{}
+	for scanner.Scan() {
+		p.Add(scanner.Bytes())
+	}
+	if err := scanner.Err(); err != nil {
+		panic(err.Error())
+	}
+
+	return &p
 }
 
 func (p *Puzzle) Add(b []byte) {
@@ -101,44 +121,34 @@ func (p *Puzzle) collect(sx, sy int) (int, int) {
 	return trees, lumberyards
 }
 
-func (p *Puzzle) Sim() {
-	p.PrintState()
-	fmt.Printf("\n")
-	//waitEnter()
-	for tick := 0; tick < 10; tick++ {
-		tmp := make([]rune, p.gridSize)
-		for y := 0; y < p.gridH; y++ {
-			i := y * p.gridW
-			for x := 0; x < p.gridW; x++ {
-				trees, lumberyards := p.collect(x, y)
+func (p *Puzzle) StepSim() {
+	tmp := make([]rune, p.gridSize)
+	for y := 0; y < p.gridH; y++ {
+		i := y * p.gridW
+		for x := 0; x < p.gridW; x++ {
+			trees, lumberyards := p.collect(x, y)
 
-				switch p.grid[i+x] {
-				case '.':
-					if trees >= 3 {
-						tmp[i+x] = '|'
-						continue
-					}
-				case '|':
-					if lumberyards >= 3 {
-						tmp[i+x] = '#'
-						continue
-					}
-				case '#':
-					if trees == 0 || lumberyards == 0 {
-						tmp[i+x] = '.'
-						continue
-					}
+			switch p.grid[i+x] {
+			case '.':
+				if trees >= 3 {
+					tmp[i+x] = '|'
+					continue
 				}
-				tmp[i+x] = p.grid[i+x]
+			case '|':
+				if lumberyards >= 3 {
+					tmp[i+x] = '#'
+					continue
+				}
+			case '#':
+				if trees == 0 || lumberyards == 0 {
+					tmp[i+x] = '.'
+					continue
+				}
 			}
+			tmp[i+x] = p.grid[i+x]
 		}
-		p.grid = tmp
-
-		//p.PrintState()
-		//waitEnter()
-		//time.Sleep(100 * time.Millisecond)
 	}
-	p.PrintState()
+	p.grid = tmp
 }
 
 func (p *Puzzle) Score() int {
@@ -155,21 +165,62 @@ func (p *Puzzle) Score() int {
 }
 
 func main() {
-	input, err := os.Open("input.txt")
-	if err != nil {
-		panic(err.Error())
+	// Solution 1
+	fmt.Println("Solution 1")
+	fmt.Println("==========")
+	p := NewPuzzle()
+	p.PrintState()
+	waitEnter()
+	for tick := 0; tick < 10; tick++ {
+		p.StepSim()
+		p.PrintState()
+		waitEnter()
 	}
-	defer input.Close()
-	scanner := bufio.NewScanner(input)
-
-	p := Puzzle{}
-	for scanner.Scan() {
-		p.Add(scanner.Bytes())
-	}
-	if err := scanner.Err(); err != nil {
-		panic(err.Error())
-	}
-
-	p.Sim()
 	fmt.Println("Score:", p.Score())
+
+	// Solution 2
+	fmt.Println("\nSolution 2")
+	fmt.Println("==========")
+	p = NewPuzzle()
+	p.PrintState()
+	fmt.Printf("\n")
+	seenGrids := make([][]rune, 0, 100000)
+	var from, to int
+	for tick := 0; tick < 1000000000; tick++ {
+		p.StepSim()
+
+		for prev, seen := range seenGrids {
+			equal := true
+			for t := range p.grid {
+				if seen[t] != p.grid[t] {
+					equal = false
+				}
+			}
+
+			if equal {
+				from = prev
+				to = tick
+				fmt.Printf("Found cycle between tick %d and %d, score: %d, offset: %d\n", prev, tick, p.Score())
+				p.PrintState()
+				waitEnter()
+				break
+			}
+		}
+		tmp := make([]rune, p.gridSize)
+		copy(tmp, p.grid)
+		seenGrids = append(seenGrids, tmp)
+
+		if from > 0 && to > 0 {
+			break
+		}
+	}
+
+	dist := to - from
+	offset := (1000000000 - from) % dist
+	p = NewPuzzle()
+	for t := 0; t < from+offset; t++ {
+		p.StepSim()
+	}
+	p.PrintState()
+	fmt.Println("Score after 1000000000 iterations:", p.Score())
 }
