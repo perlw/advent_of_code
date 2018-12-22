@@ -205,18 +205,23 @@ func (p *Puzzle) Sim() {
 		}*/
 	}
 
-	count := 0
+	total := 0
+	atRest := 0
 	for y := p.ssY; y < p.seY+1; y++ {
 		for x := 0; x < p.gridW; x++ {
 			r := p.grid[(y*p.gridW)+x]
 			if r == '|' || r == '\\' || r == '/' || r == '~' {
-				count++
+				total++
+			}
+			if r == '~' {
+				atRest++
 			}
 		}
 	}
 	p.PrintState()
 	fmt.Println("DONE")
-	fmt.Println("Total water:", count)
+	fmt.Println("Total water:", total)
+	fmt.Println("Water at rest:", atRest)
 }
 
 func main() {
