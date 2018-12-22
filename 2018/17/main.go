@@ -73,7 +73,16 @@ func (p *Puzzle) AddVein(x1, y1, x2, y2 int) {
 
 func (p *Puzzle) PrintState() {
 	for y := 0; y < p.gridH; y++ {
-		for x := 0; x < p.gridW; x++ {
+		for x := 300; x < p.gridW; x++ {
+			/*if y == p.ssY {
+				fmt.Printf("%c", '-')
+				continue
+			}
+			if y == p.seY {
+				fmt.Printf("%c", '-')
+				continue
+			}*/
+
 			r := p.grid[(y*p.gridW)+x]
 			switch r {
 			case '.':
@@ -85,15 +94,6 @@ func (p *Puzzle) PrintState() {
 			case '~':
 				stillWaterColor.Printf("%c", r)
 			default:
-				if y == p.ssY {
-					fmt.Printf("%c", '-')
-					continue
-				}
-				if y == p.seY {
-					fmt.Printf("%c", '-')
-					continue
-				}
-
 				fmt.Printf("%c", r)
 			}
 		}
@@ -117,6 +117,10 @@ func (p *Puzzle) flow(x, y int) bool {
 					rend = x - 1
 					break
 				}
+				if p.grid[i+x] == '\\' && p.grid[i+x+p.gridW] == '~' {
+					p.grid[i+x] = '|'
+					return true
+				}
 				if p.grid[i+x] == '\\' || p.grid[i+x+p.gridW] == '.' {
 					rhole = x
 					break
@@ -133,6 +137,10 @@ func (p *Puzzle) flow(x, y int) bool {
 				if p.grid[i+x] == '#' {
 					lend = x + 1
 					break
+				}
+				if p.grid[i+x] == '/' && p.grid[i+x+p.gridW] == '~' {
+					p.grid[i+x] = '|'
+					return true
 				}
 				if p.grid[i+x] == '/' || p.grid[i+x+p.gridW] == '.' {
 					lhole = x
@@ -183,10 +191,18 @@ func abs(a int) int {
 func (p *Puzzle) Sim() {
 	/*p.PrintState()
 	fmt.Printf("\n")*/
+	tick := 0
 	for p.flow(500, 0) {
-		/*p.PrintState()
-		fmt.Printf("\n")
-		time.Sleep(100 * time.Millisecond)*/
+		//p.PrintState()
+		//fmt.Printf("\n")
+		//time.Sleep(100 * time.Millisecond)
+		//waitEnter()
+		fmt.Println(tick)
+		tick++
+		/*if tick > 1231 {
+			p.PrintState()
+			fmt.Printf("\n")
+		}*/
 	}
 
 	count := 0
