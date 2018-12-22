@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"time"
 
 	col "github.com/fatih/color"
 )
@@ -24,6 +23,7 @@ type Puzzle struct {
 	gridW, gridH int
 	gridSize     int
 	grid         []rune
+	ssY, seY     int
 }
 
 func (p *Puzzle) AddVein(x1, y1, x2, y2 int) {
@@ -34,6 +34,12 @@ func (p *Puzzle) AddVein(x1, y1, x2, y2 int) {
 	}
 	if y2+2 > p.gridH {
 		p.gridH = y2 + 2
+	}
+	if y1 < p.ssY {
+		p.ssY = y1
+	}
+	if y2 > p.seY {
+		p.seY = y2
 	}
 	p.gridSize = p.gridW * p.gridH
 
@@ -67,7 +73,7 @@ func (p *Puzzle) AddVein(x1, y1, x2, y2 int) {
 
 func (p *Puzzle) PrintState() {
 	for y := 0; y < p.gridH; y++ {
-		for x := 494; x < p.gridW; x++ {
+		for x := 0; x < p.gridW; x++ {
 			r := p.grid[(y*p.gridW)+x]
 			switch r {
 			case '.':
@@ -79,6 +85,15 @@ func (p *Puzzle) PrintState() {
 			case '~':
 				stillWaterColor.Printf("%c", r)
 			default:
+				if y == p.ssY {
+					fmt.Printf("%c", '-')
+					continue
+				}
+				if y == p.seY {
+					fmt.Printf("%c", '-')
+					continue
+				}
+
 				fmt.Printf("%c", r)
 			}
 		}
@@ -87,13 +102,69 @@ func (p *Puzzle) PrintState() {
 }
 
 func (p *Puzzle) flow(x, y int) bool {
-	for yy := y; yy < p.gridH; yy++ {
-		i := (yy * p.gridW) + x
+	for ; y < p.gridH; y++ {
+		i := (y * p.gridW) + x
 
 		r := p.grid[i]
 		switch r {
 		case '#', '~':
-			return p.settle(x, yy-1)
+			y--
+			i := (y * p.gridW)
+			var rend int
+			var rhole int
+			for ; x < p.gridW; x++ {
+				if p.grid[i+x] == '#' {
+					rend = x - 1
+					break
+				}
+				if p.grid[i+x] == '\\' || p.grid[i+x+p.gridW] == '.' {
+					rhole = x
+					break
+				}
+				if p.grid[i+x] == '.' {
+					p.grid[i+x] = '|'
+					return true
+				}
+			}
+			x--
+			var lend int
+			var lhole int
+			for ; x > 0; x-- {
+				if p.grid[i+x] == '#' {
+					lend = x + 1
+					break
+				}
+				if p.grid[i+x] == '/' || p.grid[i+x+p.gridW] == '.' {
+					lhole = x
+					break
+				}
+				if p.grid[i+x] == '.' {
+					p.grid[i+x] = '|'
+					return true
+				}
+			}
+
+			if rhole > 0 || lhole > 0 {
+				if rhole > 0 {
+					p.grid[i+rhole] = '\\'
+					if p.flow(rhole, y+1) {
+						return true
+					}
+				}
+				if lhole > 0 {
+					p.grid[i+lhole] = '/'
+					if p.flow(lhole, y+1) {
+						return true
+					}
+				}
+				return false
+			}
+
+			for x = lend; x <= rend; x++ {
+				p.grid[i+x] = '~'
+			}
+
+			return true
 		case '.':
 			p.grid[i] = '|'
 			return true
@@ -109,94 +180,27 @@ func abs(a int) int {
 	return a
 }
 
-func (p *Puzzle) settle(x, y int) bool {
-	i := (y * p.gridW) + x
-	var u, v int
-	var wu, wv int
-	for t := 0; t < p.gridW; t++ {
-		if u == 0 && p.grid[i-t] == '#' {
-			u = i - t + 1
-		}
-		if p.grid[i-t] == '|' {
-			wu = i - t - 1
-		} else if p.grid[i-t] == '/' {
-			wu = i - t
-		}
-		if v == 0 && p.grid[i+t] == '#' {
-			v = i + t - 1
-		}
-		if p.grid[i+t] == '|' {
-			wv = i + t + 1
-		} else if p.grid[i+t] == '\\' {
-			wv = i + t
-		}
-		if u > 0 && v > 0 {
-			break
-		}
-	}
-	if v == 0 {
-		v = p.gridW
-	}
-	if wu < u {
-		wu = 9999
-	}
-	if wv > v {
-		wv = 9999
-	}
-
-	fit := false
-	du := abs(i - wu)
-	dv := abs(wv - i)
-	if wu <= v || wv <= v {
-		if du >= 0 && du <= dv {
-			if p.grid[wu+p.gridW] == '.' {
-				p.grid[wu] = '/'
-				p.grid[wu+p.gridW] = '|'
-				fit = true
-			} else if p.grid[wu+p.gridW] == '.' {
-				p.flow(wu%p.gridW, y+1)
-				fit = true
-			} else {
-				p.grid[wu] = '|'
-				fit = true
-			}
-		} else if dv >= 0 {
-			if p.grid[wv+p.gridW] == '.' {
-				p.grid[wv] = '\\'
-				p.grid[wv+p.gridW] = '|'
-				fit = true
-			} else if p.grid[wv+p.gridW] == '|' {
-				if !p.flow(wv%p.gridW, y+1) {
-					fmt.Println(du)
-				}
-				fit = true
-			} else {
-				p.grid[wv] = '|'
-				fit = true
-			}
-		}
-	}
-
-	if !fit {
-		for t := u; t <= v; t++ {
-			p.grid[t] = '~'
-		}
-		return false
-	}
-
-	return true
-}
-
 func (p *Puzzle) Sim() {
-	p.PrintState()
-	fmt.Printf("\n")
-	for {
-		p.flow(500, 0)
-
-		p.PrintState()
+	/*p.PrintState()
+	fmt.Printf("\n")*/
+	for p.flow(500, 0) {
+		/*p.PrintState()
 		fmt.Printf("\n")
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)*/
 	}
+
+	count := 0
+	for y := p.ssY; y < p.seY+1; y++ {
+		for x := 0; x < p.gridW; x++ {
+			r := p.grid[(y*p.gridW)+x]
+			if r == '|' || r == '\\' || r == '/' || r == '~' {
+				count++
+			}
+		}
+	}
+	p.PrintState()
+	fmt.Println("DONE")
+	fmt.Println("Total water:", count)
 }
 
 func main() {
@@ -207,7 +211,9 @@ func main() {
 	defer input.Close()
 	scanner := bufio.NewScanner(input)
 
-	p := Puzzle{}
+	p := Puzzle{
+		ssY: 99999,
+	}
 	for scanner.Scan() {
 		var xs, xe, ys, ye int
 		fmt.Sscanf(scanner.Text(), "x=%d, y=%d..%d", &xs, &ys, &ye)
