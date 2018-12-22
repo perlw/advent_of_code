@@ -1,0 +1,54 @@
+#ip 3
+00  add 16 to r3 (goto set_num)
+
+start:
+01  set r2 to 1
+start1:
+02  set r5 to 1
+
+start3:
+03  multiply r2 with r5 in r1
+04  set r1 to if r1 == r4
+05  add r1 to r3 in r3 (if r1 == r4 goto check)
+06  add 1 to r3 in r3 (goto skip_reset)
+07  add r2 to r0 in r0
+
+skip_reset:
+08  add 1 to r5 in r5
+
+check:
+09  set r1 to if r5 > r4
+10  add r3 to r1 in r3 (if r5 > r3 goto skip)
+11  set r3 to 2 (goto start3)
+
+skip:
+12  add 1 to r2 in r2
+13  set r1 to if r2 > r4
+14  add r1 to r3 in r3 (if r2 > r4 goto end)
+15  set r3 to 1 (goto start1)
+
+end:
+16  multiply r3 with r3 in r3 (goto.. umm 256? halts program)
+
+set_num:
+17  add 2 to r4
+18  multiply r4 with r4 to r4
+19  multiply r3 with r4 to r4
+20  multiply r4 with 11 to r4
+21  add 4 to r1 in r1
+22  add r3 to r1 in r1
+23  add 2 to r1 in r1
+24  add r1 to r4 in r4
+25  add r0 to r3 (goto set_large_num)
+26  set r3 to 0 (goto start)
+
+set_large_num:
+27  set r3 to r1
+28  multiply r1 with r3 to r1
+29  add r3 to r1 in r1
+30  multiply r3 with r1 in r1
+31  multiply r1 with 14 in r1
+32  multiply r1 with r3 in r1
+33  add r4 to r1 in r4
+34  set r0 to 0
+35  set r3 to 0 (goto start)
