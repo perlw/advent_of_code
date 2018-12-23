@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"time"
 )
 
 type ArgumentType int
@@ -187,6 +188,7 @@ func (p *Puzzle) RunProgram() {
 	oldRegs := [6]int{}
 	regs := [6]rune{}
 	ticks := 0
+	start := time.Now()
 	for {
 		if p.IP < 0 || p.IP*4 >= len(p.ROM) {
 			fmt.Println("PANIC! Access OOB @", p.IP, "after", ticks, "iterations")
@@ -221,10 +223,11 @@ func (p *Puzzle) RunProgram() {
 			}
 			regs[t] = '*'
 		}
-		if ticks%10000 == 0 {
-			fmt.Println(ticks)
+		if ticks%10000000 == 0 {
+			fmt.Println(time.Now().Sub(start), ticks)
 		}
-		//fmt.Printf("%3c %3c %3c %3c %3c %3c <- %d\n", regs[0], regs[1], regs[2], regs[3], regs[4], regs[5], ticks)
+		//p.PrintRegs()
+		fmt.Printf("%3c %3c %3c %3c %3c %3c <- %d\n", regs[0], regs[1], regs[2], regs[3], regs[4], regs[5], ticks)
 	}
 }
 
@@ -320,14 +323,57 @@ func main() {
 		p.RunProgram()
 		p.PrintRegs()
 	}
+	return
 
-	// Simply running a version of the algorithm
-	divisorSum := func(n int) int {
-		sum := 0
-		for i := 1; i <= n; i++ {
-			sum += (n / i) * i
+	// Attempt to re-impl algo
+	var r0, r1, r2, r3, r4, r5 int
+
+	r0 = 1
+	r4 += 2
+	r4 *= r4
+	r4 *= 19
+	r4 *= 11
+	r1 += 4
+	r1 += 22
+	r1 += 2
+	r4 += r1
+
+	r1 = 27
+	r1 *= 28
+	r1 += 29
+	r1 *= 30
+	r1 *= 14
+	r1 *= 32
+	r4 += r1
+	r0 = 0
+
+	//start
+	r2 = 1
+	//start1
+	r5 = 1
+	//start3
+	tick := 0
+	for {
+		r1 = r2 * r5
+		if r1 == r4 {
+			//check
+			if r5 > r4 {
+				//skip
+				r2++
+				if r2 > r4 {
+					fmt.Println("DONE", r0, r1, r2, r3, r4, r5)
+					return
+				} else {
+					r5 = 1
+				}
+			}
+		} else {
+			r5++
 		}
-		return sum
+
+		if tick%10000 == 0 {
+			fmt.Println(tick, "-", r0, r1, r2, r3, r4, r5)
+		}
+		tick++
 	}
-	fmt.Printf("\nSum: %d\n", divisorSum(10551327))
 }

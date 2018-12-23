@@ -18,7 +18,7 @@ skip_reset:
 
 check:
 09  set r1 to if r5 > r4
-10  add r3 to r1 in r3 (if r5 > r3 goto skip)
+10  add r3 to r1 in r3 (if r5 > r4 goto skip)
 11  set r3 to 2 (goto start3)
 
 skip:
