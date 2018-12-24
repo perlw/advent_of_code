@@ -48,7 +48,7 @@ func copyGrid(dst []byte, src []byte, dx, dy, dw, dh, sw, sh int) {
 	}
 }
 
-func (p *Puzzle) walk(door DoorDir) {
+func (p *Puzzle) walk(door DoorDir) (int, int) {
 	var nx, ny int
 	switch door {
 	case DoorNorth:
@@ -67,24 +67,27 @@ func (p *Puzzle) walk(door DoorDir) {
 	p.cX += nx
 	p.cY += ny
 
+	var dx, dy int
 	if p.cX < 0 || p.cY < 0 || p.cX >= p.gridW || p.cY >= p.gridH {
-		var dx, dy int
 		switch door {
-		case DoorNorth, DoorSouth:
-			p.gridH += 2
+		case DoorNorth:
+			p.cY = oldY
 			dy = 2
-		case DoorWest, DoorEast:
-			p.gridW += 2
+			fallthrough
+		case DoorSouth:
+			p.gridH += 2
+		case DoorWest:
+			p.cX = oldX
 			dx = 2
+			fallthrough
+		case DoorEast:
+			p.gridW += 2
 		}
 		p.gridSize = p.gridW * p.gridH
 
 		newGrid := make([]byte, p.gridSize)
 		copyGrid(newGrid, p.grid, dx, dy, p.gridW, p.gridH, oldW, oldH)
 		p.grid = newGrid
-
-		p.cX = oldX
-		p.cY = oldY
 	}
 
 	room := []byte{'#', '?', '#', '?', '.', '?', '#', '?', '#'}
@@ -92,7 +95,9 @@ func (p *Puzzle) walk(door DoorDir) {
 		i := ((y + p.cY - 1) * p.gridW) + p.cX - 1
 		ri := y * 3
 		for x := 0; x < 3; x++ {
-			p.grid[i+x] = room[ri+x]
+			if p.grid[i+x] == 0 {
+				p.grid[i+x] = room[ri+x]
+			}
 		}
 	}
 
@@ -105,44 +110,95 @@ func (p *Puzzle) walk(door DoorDir) {
 
 	p.PrintMap()
 	waitEnter()
+
+	return dx, dy
 }
 
 func (p *Puzzle) PrintMap() {
 	for y := 0; y < p.gridH; y++ {
 		i := y * p.gridW
 		for x := 0; x < p.gridW; x++ {
-			fmt.Printf("%c", p.grid[i+x])
+			c := p.grid[i+x]
+			if c == 0 {
+				c = ' '
+			}
+			fmt.Printf("%c", c)
 		}
 		fmt.Printf("\n")
 	}
 }
 
-func (p *Puzzle) Map(directions []byte) {
-	for _, c := range directions {
+func (p *Puzzle) Map(directions []byte) (int, int) {
+	var oX, oY int
+	fmt.Println("run", string(directions))
+	for t := 0; t < len(directions); t++ {
+		c := directions[t]
 		switch c {
 		case '^':
 		case '$':
+			for t := range p.grid {
+				if p.grid[t] == '?' {
+					p.grid[t] = '#'
+				}
+			}
+			break
+		case '(':
+			var branch []byte
+			fmt.Printf("branch at %d,%d index %d\n", p.cX, p.cY, t)
+			count := 1
+			split := 0
+			for i := t + 1; i < len(directions); i++ {
+				if directions[i] == '(' {
+					count++
+					continue
+				}
+				if split == 0 && directions[i] == '|' {
+					split = i - (t + 1)
+					continue
+				}
+				if directions[i] == ')' {
+					count--
+					if count == 0 {
+						branch = directions[t+1 : i]
+						t = i + 1
+						break
+					}
+				}
+			}
+			oldX, oldY := p.cX, p.cY
+			x, y := p.Map(branch[:split])
+			oX += x
+			oY += y
+			p.cX, p.cY = oldX+x, oldY+y
+			x, y = p.Map(branch[split+1:])
+			oX += x
+			oY += y
+			p.cX, p.cY = oldX+x, oldY+y
+			fmt.Printf("continuing with %s at %d,%d index %d\n", string(directions[t:]), p.cX, p.cY, t)
+		case ')', '|':
+			break
 		default:
 			switch c {
 			case 'N':
-				p.walk(DoorNorth)
+				x, y := p.walk(DoorNorth)
+				oX += x
+				oY += y
 			case 'W':
-				p.walk(DoorWest)
+				x, y := p.walk(DoorWest)
+				oX += x
+				oY += y
 			case 'E':
-				p.walk(DoorEast)
+				x, y := p.walk(DoorEast)
+				oX += x
+				oY += y
 			case 'S':
-				p.walk(DoorSouth)
+				x, y := p.walk(DoorSouth)
+				oX += x
+				oY += y
 			}
 		}
 	}
-
-	for t := range p.grid {
-		if p.grid[t] == '?' {
-			p.grid[t] = '#'
-		}
-	}
-
-	p.PrintMap()
+	return oX, oY
 }
 
 func (p *Puzzle) MapFile(filepath string) {
@@ -168,7 +224,10 @@ func (p *Puzzle) MapFile(filepath string) {
 func main() {
 	// Tests
 	p := NewPuzzle()
-	p.Map([]byte("^WNE$"))
+	//p.Map([]byte("^WNE$"))
+	//p.Map([]byte("^WNEE(SSSW|EEN(ES|EN))NN(WW|)NN$"))
+	p.Map([]byte("^ESSWWN(E|NNENN(EESS(WNSE|)SSS|WWWSSSSE(SW|NNNE)))$"))
+	p.PrintMap()
 	waitEnter()
 
 	p = NewPuzzle()
