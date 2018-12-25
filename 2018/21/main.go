@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 )
@@ -158,6 +159,7 @@ func eq(a, b int) int {
 }
 
 func waitEnter() {
+	fmt.Printf("Press ENTER to continue\n")
 	bufio.NewReader(os.Stdin).ReadBytes('\n')
 }
 
@@ -204,10 +206,37 @@ func (p *Puzzle) RunProgram() {
 
 	p.PrintState()
 	waitEnter()
+
+	start := time.Now()
+	ticker := time.Tick(time.Second)
+	seen := make(map[int]struct{})
+	ordered_seen := make([]int, 0, 1000)
 	for {
+		elapsed := time.Now().Sub(start)
+		select {
+		case <-ticker:
+			fmt.Println(elapsed)
+		default:
+		}
+
 		if p.IP < 0 || p.IP*4 >= len(p.ROM) {
 			color.New(color.BgRed).Add(color.FgHiWhite).Println("PANIC! Access OOB @", p.IP, "after", p.Ticks, "iterations")
 			return
+		}
+
+		if p.IP == 28 {
+			if _, ok := seen[p.Regs[4]]; ok {
+				p.PrintState()
+
+				fmt.Println("DUPE!", p.Regs[4])
+				fmt.Println("Seen:", len(ordered_seen))
+				fmt.Println("First:", ordered_seen[0])
+				fmt.Println("Last:", ordered_seen[len(ordered_seen)-1])
+
+				return
+			}
+			seen[p.Regs[4]] = struct{}{}
+			ordered_seen = append(ordered_seen, p.Regs[4])
 		}
 
 		p.Regs[p.IPreg] = p.IP
@@ -223,7 +252,7 @@ func (p *Puzzle) RunProgram() {
 			b = p.Regs[b]
 		}
 
-		// Detect inf loops
+		// Detect loops
 		if c == p.IPreg {
 			p.LastJumpFrom = p.IP
 		} else {
@@ -257,9 +286,6 @@ func (p *Puzzle) RunProgram() {
 				p.Isljmp = make([]int, 0, 10)
 			}
 		}
-
-		p.PrintState()
-		waitEnter()
 	}
 }
 
@@ -370,42 +396,35 @@ func (p *Puzzle) PrintState() {
 }
 
 func main() {
-	// Solution 1
-	if true {
-		fmt.Println("Solution 1\n---")
-		p := Puzzle{}
+	p := Puzzle{}
 
-		input, err := os.Open("input.txt")
-		if err != nil {
-			panic(err.Error())
-		}
-		defer input.Close()
-		scanner := bufio.NewScanner(input)
-
-		for scanner.Scan() {
-			var op string
-			var a, b, c int
-			fmt.Sscanf(scanner.Text(), "%s %d %d %d", &op, &a, &b, &c)
-
-			if op == "#ip" {
-				p.IPreg = a
-				continue
-			}
-
-			for k, o := range opcodes {
-				if o.Name == op {
-					p.ROM = append(p.ROM, k, a, b, c)
-					break
-				}
-			}
-
-			//			fmt.Println(op, a, b, c)
-		}
-		if err := scanner.Err(); err != nil {
-			panic(err.Error())
-		}
-
-		fmt.Printf("\n")
-		p.RunProgram()
+	input, err := os.Open("input.txt")
+	if err != nil {
+		panic(err.Error())
 	}
+	scanner := bufio.NewScanner(input)
+
+	for scanner.Scan() {
+		var op string
+		var a, b, c int
+		fmt.Sscanf(scanner.Text(), "%s %d %d %d", &op, &a, &b, &c)
+
+		if op == "#ip" {
+			p.IPreg = a
+			continue
+		}
+
+		for k, o := range opcodes {
+			if o.Name == op {
+				p.ROM = append(p.ROM, k, a, b, c)
+				break
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		panic(err.Error())
+	}
+	input.Close()
+
+	p.RunProgram()
 }
