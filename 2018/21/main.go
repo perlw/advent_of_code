@@ -184,18 +184,29 @@ type Puzzle struct {
 	ROM   []int
 	IP    int
 	IPreg int
+	Ticks int
 
-	LastResult [][6]int
+	LastResult        [][6]int
+	Isljmp            []int // Instructions since last jump
+	PrevIsljmp        []int
+	LoopCount         int
+	LastJumpFrom      int
+	LastJumpTo        int
+	PotentialLoopFrom int
+	PotentialLoopTo   int
 }
 
 func (p *Puzzle) RunProgram() {
+	p.PrevIsljmp = make([]int, 0, 10)
+	p.Isljmp = make([]int, 0, 10)
 	p.LastResult = make([][6]int, len(p.ROM)/4)
-	ticks := 0
+	p.LastJumpFrom = -1
+
 	p.PrintState()
 	waitEnter()
 	for {
 		if p.IP < 0 || p.IP*4 >= len(p.ROM) {
-			fmt.Println("PANIC! Access OOB @", p.IP, "after", ticks, "iterations")
+			color.New(color.BgRed).Add(color.FgHiWhite).Println("PANIC! Access OOB @", p.IP, "after", p.Ticks, "iterations")
 			return
 		}
 
@@ -212,14 +223,41 @@ func (p *Puzzle) RunProgram() {
 			b = p.Regs[b]
 		}
 
+		// Detect inf loops
+		if c == p.IPreg {
+			p.LastJumpFrom = p.IP
+		} else {
+			p.Isljmp = append(p.Isljmp, op[0])
+		}
+
 		p.Regs[c] = o.Exe(a, b)
 		p.IP = p.Regs[p.IPreg]
 		copy(p.LastResult[p.IP][:], p.Regs[:])
 
 		p.IP++
-		ticks++
+		p.Ticks++
 
-		//fmt.Printf("%3c %3c %3c %3c %3c %3c <- %d\n", regs[0], regs[1], regs[2], regs[3], regs[4], regs[5], ticks)
+		if c == p.IPreg {
+			p.LastJumpTo = p.IP
+
+			if p.IP >= p.PotentialLoopTo && p.IP <= p.PotentialLoopFrom {
+				if p.IP == p.PotentialLoopTo {
+					if sliceEqual(p.Isljmp, p.PrevIsljmp) {
+						p.LoopCount++
+					} else {
+						p.LoopCount = 0
+					}
+					p.PrevIsljmp = p.Isljmp
+					p.Isljmp = make([]int, 0, 10)
+				}
+			} else {
+				p.PotentialLoopFrom = p.LastJumpFrom
+				p.PotentialLoopTo = p.LastJumpTo
+				p.PrevIsljmp = p.Isljmp
+				p.Isljmp = make([]int, 0, 10)
+			}
+		}
+
 		p.PrintState()
 		waitEnter()
 	}
@@ -231,23 +269,26 @@ func (p *Puzzle) PrintState() {
 	color.New(color.FgWhite).Printf("IP: ")
 	color.New(color.FgHiWhite).Printf("%2d", p.IP)
 	color.New(color.FgWhite).Printf("\tIPreg: ")
-	color.New(color.FgHiCyan).Printf("r%d\n", p.IPreg)
+	color.New(color.FgHiCyan).Printf("r%d", p.IPreg)
+	color.New(color.FgWhite).Printf("\tTicks: ")
+	color.New(color.FgHiWhite).Printf("%d\n", p.Ticks)
 	color.New(color.FgWhite).Printf("Registers: ")
 	fmt.Printf("[%d, %d, %d, %d, %d, %d]\n", p.Regs[0], p.Regs[1], p.Regs[2], p.Regs[3], p.Regs[4], p.Regs[5])
 	color.New(color.FgWhite).Printf("%s\n", strings.Repeat("-", 93))
 	for t := 0; t < len(p.ROM); t += 4 {
+		i := t / 4
 		o := opcodes[p.ROM[t]]
 
 		gutterColor := color.New(color.FgWhite)
 		normalColor := color.New(color.FgHiWhite)
 		registerColor := color.New(color.FgHiCyan)
-		if t/4 == p.IP {
+		if i == p.IP {
 			gutterColor = color.New(color.FgHiWhite).Add(color.BgBlue)
 			normalColor.Add(color.BgBlue)
 			registerColor = color.New(color.FgHiCyan).Add(color.BgBlue)
 		}
 
-		gutterColor.Printf("%02d|", t/4)
+		gutterColor.Printf("%02d|", i)
 		normalColor.Printf(" %s", o.Name)
 		if o.A == ArgumentTypeRegister {
 			registerColor.Printf(" % 6sr%d", " ", p.ROM[t+1])
@@ -262,7 +303,7 @@ func (p *Puzzle) PrintState() {
 		registerColor.Printf(" % 6sr%d", " ", p.ROM[t+3])
 
 		regs := make([]string, len(p.Regs))
-		for t, r := range p.LastResult[t/4] {
+		for t, r := range p.LastResult[i] {
 			if r > 100000000 {
 				regs[t] += ">9999999"
 			} else {
@@ -270,6 +311,59 @@ func (p *Puzzle) PrintState() {
 			}
 		}
 		gutterColor.Printf(" = [%s]", strings.Join(regs, ","))
+
+		if p.LastJumpFrom > -1 {
+			if i >= p.PotentialLoopTo && i <= p.PotentialLoopFrom {
+				if i == p.PotentialLoopTo {
+					registerColor.Printf(" *")
+				}
+				if i > p.PotentialLoopTo && i < p.PotentialLoopFrom {
+					registerColor.Printf(" |")
+				}
+				if i == p.PotentialLoopFrom {
+					registerColor.Printf(" ^")
+				}
+			}
+
+			if i == p.LastJumpTo {
+				gutterColor.Printf(" *")
+			}
+			if (i > p.LastJumpTo && i < p.LastJumpFrom) || (i < p.LastJumpTo && i > p.LastJumpFrom) {
+				gutterColor.Printf(" |")
+			}
+			if i == p.LastJumpFrom {
+				if p.LastJumpFrom < p.LastJumpTo {
+					gutterColor.Printf(" v")
+				} else {
+					gutterColor.Printf(" ^")
+				}
+				gutterColor.Printf(" jump")
+			}
+
+			if i == p.PotentialLoopTo {
+				if p.LoopCount > 0 {
+					registerColor.Printf(" loop")
+				}
+			}
+
+			if i == p.PotentialLoopFrom {
+				if p.LoopCount > 0 {
+					registerColor.Printf(" iteration %d", p.LoopCount)
+				}
+			}
+
+			/*
+				if i == p.IP {
+					if (p.IP > p.LastJumpTo && p.IP < p.LastJumpFrom) || (p.IP < p.LastJumpTo && p.IP > p.LastJumpFrom) {
+						inst := make([]string, len(p.Isljmp))
+						for t, o := range p.Isljmp {
+							inst[t] = opcodes[o].Name
+						}
+						gutterColor.Printf(" [%s]", strings.Join(inst, ","))
+					}
+				}
+			*/
+		}
 
 		fmt.Printf("\n")
 	}
