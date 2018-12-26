@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"container/heap"
 	"fmt"
 	"os"
 
@@ -32,13 +33,24 @@ func abs(a int) int {
 	return a
 }
 
-func manhattan(a, b *NanoBot) int {
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func manhattan(a, b Point) int {
 	return abs(a.X-b.X) + abs(a.Y-b.Y) + abs(a.Z-b.Z)
 }
 
-type NanoBot struct {
+type Point struct {
 	X, Y, Z int
-	R       int
+}
+
+type NanoBot struct {
+	Pos Point
+	R   int
 }
 
 type Puzzle struct {
@@ -61,9 +73,11 @@ func NewPuzzle(filepath string) *Puzzle {
 		fmt.Sscanf(scanner.Text(), "pos=<%d,%d,%d>, r=%d", &x, &y, &z, &r)
 
 		p.bots = append(p.bots, NanoBot{
-			X: x,
-			Y: y,
-			Z: z,
+			Pos: Point{
+				X: x,
+				Y: y,
+				Z: z,
+			},
 			R: r,
 		})
 	}
@@ -90,23 +104,60 @@ func (p *Puzzle) FindStrongestBot() *NanoBot {
 func (p *Puzzle) DetectInRangeBot(bot *NanoBot) []*NanoBot {
 	bots := make([]*NanoBot, 0, 400)
 	for t, b := range p.bots {
-		if manhattan(bot, &b) <= bot.R {
+		if manhattan(bot.Pos, b.Pos) <= bot.R {
 			bots = append(bots, &p.bots[t])
 		}
 	}
 	return bots
 }
 
+func (p *Puzzle) FindMostOverlapDist() int {
+	pq := make(PriorityQueue, 0, len(p.bots)*2)
+
+	for _, b := range p.bots {
+		d := abs(b.Pos.X) + abs(b.Pos.Y) + abs(b.Pos.Z)
+		pq = append(pq, &Item{
+			value:    1,
+			priority: max(0, d-b.R),
+		})
+		pq = append(pq, &Item{
+			value:    -1,
+			priority: d + b.R + 1,
+		})
+	}
+	heap.Init(&pq)
+
+	var result, count, maxCount int
+	for pq.Len() > 0 {
+		item := heap.Pop(&pq).(*Item)
+		dist, e := item.priority, item.value
+		count += e
+		if count > maxCount {
+			result = dist
+			maxCount = count
+		}
+	}
+
+	return result + 1
+}
+
 func main() {
-	// Test
-	t := NewPuzzle("test.txt")
+	// Test1
+	t := NewPuzzle("test1.txt")
 	bot := t.FindStrongestBot()
 	spew.Dump(bot)
 	inRange := t.DetectInRangeBot(bot)
 	spew.Dump(inRange)
 	fmt.Println("In range:", len(inRange))
 
-	// Puzzle
+	// Test2
+	t = NewPuzzle("test2.txt")
+	bot = t.FindStrongestBot()
+	spew.Dump(bot)
+	fmt.Printf("Overlapping dist: %+v\n", t.FindMostOverlapDist())
+
+	// Puzzle1
 	p := NewPuzzle("input.txt")
 	fmt.Println("In range:", len(p.DetectInRangeBot(p.FindStrongestBot())))
+	fmt.Printf("Overlapping dist: %+v\n", p.FindMostOverlapDist())
 }
