@@ -4,12 +4,29 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/davecgh/go-spew/spew"
 )
 
+type GroupType int
+
+const (
+	GroupImmune GroupType = iota
+	GroupInfection
+)
+
+func (g GroupType) String() string {
+	if g == GroupImmune {
+		return "immunesystem"
+	}
+	return "infection"
+}
+
 type Group struct {
+	ID         int
+	Type       GroupType
 	Amount     int
 	HP         int
 	Weak       []string
@@ -17,6 +34,31 @@ type Group struct {
 	Damage     int
 	DamageType string
 	Initiative int
+	EP         int
+}
+
+func (g *Group) PotentialDamage(target *Group) int {
+	if inSlice(g.DamageType, target.Immune) {
+		return 0
+	}
+	if inSlice(g.DamageType, target.Weak) {
+		return g.EP * 2
+	}
+	return g.EP
+}
+
+type ByInit []Group
+
+func (b ByInit) Len() int {
+	return len(b)
+}
+
+func (b ByInit) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+func (b ByInit) Less(i, j int) bool {
+	return b[i].Initiative > b[j].Initiative
 }
 
 func waitEnter() {
@@ -54,19 +96,79 @@ func manhattan(a, b Point) int {
 	return abs(a.X-b.X) + abs(a.Y-b.Y) + abs(a.Z-b.Z)
 }
 
+func inSlice(a string, b []string) bool {
+	for _, c := range b {
+		if a == c {
+			return true
+		}
+	}
+	return false
+}
+
+func findGroup(groups []Group, id int, groupType GroupType) *Group {
+	for t := range groups {
+		if groups[t].ID == id && groups[t].Type == groupType {
+			return &groups[t]
+		}
+	}
+	return nil
+}
+
+func existsInTurnOrder(group *Group, turnorder []Turn) *Group {
+	for t := range turnorder {
+		if turnorder[t].Target.ID == group.ID && turnorder[t].Target.Type == group.Type {
+			return turnorder[t].Target
+		}
+	}
+	return nil
+}
+
+func findTarget(attacker *Group, turnorder []Turn, groups []Group) (*Group, int) {
+	highest := -1
+	index := -1
+	init := -1
+	hEP := -1
+	for t := range groups {
+		if groups[t].Amount <= 0 {
+			continue
+		}
+		if (attacker.ID == groups[t].ID && attacker.Type == groups[t].Type) || attacker.Type == groups[t].Type {
+			continue
+		}
+		if existsInTurnOrder(&groups[t], turnorder) != nil {
+			continue
+		}
+
+		potential := attacker.PotentialDamage(&groups[t])
+		if potential > highest {
+			highest = potential
+			index = t
+			init = groups[t].Initiative
+			hEP = groups[t].EP
+		} else if potential == highest && (groups[t].EP > hEP || groups[t].Initiative > init) {
+			highest = potential
+			index = t
+			init = groups[t].Initiative
+			hEP = groups[t].EP
+		}
+	}
+	if index > -1 {
+		return &groups[index], highest
+	}
+	return nil, -1
+}
+
 type Point struct {
 	X, Y, Z int
 }
 
 type Puzzle struct {
-	ImmuneSystem []Group
-	Infection    []Group
+	Groups []Group
 }
 
 func NewPuzzle(filepath string) *Puzzle {
 	p := Puzzle{
-		ImmuneSystem: make([]Group, 0, 10),
-		Infection:    make([]Group, 0, 10),
+		Groups: make([]Group, 0, 10),
 	}
 
 	input, err := os.Open(filepath)
@@ -75,7 +177,8 @@ func NewPuzzle(filepath string) *Puzzle {
 	}
 	scanner := bufio.NewScanner(input)
 
-	target := p.ImmuneSystem
+	id := 1
+	groupType := GroupImmune
 	for t := 0; t < 2; t++ {
 		scanner.Scan()
 		if err := scanner.Err(); err != nil {
@@ -90,9 +193,8 @@ func NewPuzzle(filepath string) *Puzzle {
 			line := scanner.Text()
 			if line == "" {
 				scanner.Scan()
-				scanner.Scan()
-				p.ImmuneSystem = target
-				target = p.Infection
+				id = 1
+				groupType = GroupInfection
 				continue
 			}
 
@@ -100,26 +202,34 @@ func NewPuzzle(filepath string) *Puzzle {
 				return c == '(' || c == ')'
 			})
 
-			vparts := strings.Split(parts[1], ";")
-			for _, vul := range vparts {
-				vul = strings.Trim(vul, " ")
-				vulp := strings.FieldsFunc(vul, func(c rune) bool {
-					return c == ' ' || c == ','
-				})
-				for t := 2; t < len(vulp); t++ {
-					switch vulp[0] {
-					case "weak":
-						weak = append(weak, vulp[t])
-					case "immune":
-						immune = append(immune, vulp[t])
+			if len(parts) > 1 {
+				vparts := strings.Split(parts[1], ";")
+				for _, vul := range vparts {
+					vul = strings.Trim(vul, " ")
+					vulp := strings.FieldsFunc(vul, func(c rune) bool {
+						return c == ' ' || c == ','
+					})
+					for t := 2; t < len(vulp); t++ {
+						switch vulp[0] {
+						case "weak":
+							weak = append(weak, vulp[t])
+						case "immune":
+							immune = append(immune, vulp[t])
+						}
 					}
 				}
 			}
 
 			fmt.Sscanf(parts[0], "%d units each with %d hit points", &num, &hp)
-			fmt.Sscanf(parts[2], " with an attack that does %d %s damage at initiative %d", &pow, &damagetype, &init)
+			index := 0
+			if len(parts) > 1 {
+				index = 2
+			}
+			fmt.Sscanf(parts[index], " with an attack that does %d %s damage at initiative %d", &pow, &damagetype, &init)
 
-			target = append(target, Group{
+			p.Groups = append(p.Groups, Group{
+				ID:         id,
+				Type:       groupType,
 				Amount:     num,
 				Damage:     pow,
 				DamageType: damagetype,
@@ -127,13 +237,14 @@ func NewPuzzle(filepath string) *Puzzle {
 				Immune:     immune,
 				Initiative: init,
 				Weak:       weak,
+				EP:         num * pow,
 			})
+			id++
 		}
 		if err := scanner.Err(); err != nil {
 			panic(err.Error())
 		}
 	}
-	p.Infection = target
 
 	spew.Dump(p)
 
@@ -142,7 +253,67 @@ func NewPuzzle(filepath string) *Puzzle {
 	return &p
 }
 
+type Turn struct {
+	Group  *Group
+	Target *Group
+}
+
+func (t *Turn) Exec() int {
+	damage := t.Group.PotentialDamage(t.Target)
+	deaths := damage / t.Target.HP
+	t.Target.Amount -= deaths
+	return deaths
+}
+
 func (p *Puzzle) Sim() {
+	for {
+		turnorder := make([]Turn, 0, 10)
+
+		sort.Sort(ByInit(p.Groups))
+
+		fmt.Println("\nTarget phase:")
+		// Decide turn order
+		for t := range p.Groups {
+			if p.Groups[t].Amount <= 0 {
+				continue
+			}
+
+			target, potential := findTarget(&p.Groups[t], turnorder, p.Groups)
+			if target == nil {
+				fmt.Println("no targets")
+				continue
+			}
+
+			fmt.Printf("#%d:%s -> #%d:%s for %d damage\n", p.Groups[t].ID, p.Groups[t].Type, target.ID, target.Type, potential)
+
+			turnorder = append(turnorder, Turn{
+				Group:  &p.Groups[t],
+				Target: target,
+			})
+		}
+
+		if len(turnorder) == 0 {
+			fmt.Println("Combat over")
+			spew.Dump(p.Groups)
+			sum := 0
+			for _, g := range p.Groups {
+				if g.Amount > 0 {
+					sum += g.Amount
+					fmt.Printf("#%d:%s contains %d units\n", g.ID, g.Type, g.Amount)
+				}
+			}
+			fmt.Println("Sum alive:", sum)
+			return
+		}
+
+		fmt.Println("\nAttack phase:")
+		// Execute
+		for _, t := range turnorder {
+			fmt.Printf("#%d:%s -> #%d:%s", t.Group.ID, t.Group.Type, t.Target.ID, t.Target.Type)
+			num := t.Exec()
+			fmt.Printf(", killing %d units\n", num)
+		}
+	}
 }
 
 func main() {
@@ -151,6 +322,6 @@ func main() {
 	t.Sim()
 
 	// Puzzle1
-	/*p := NewPuzzle("input.txt")
-	p.Sim()*/
+	p := NewPuzzle("input.txt")
+	p.Sim()
 }
