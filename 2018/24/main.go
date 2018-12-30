@@ -166,7 +166,7 @@ type Puzzle struct {
 	Groups []Group
 }
 
-func NewPuzzle(filepath string) *Puzzle {
+func NewPuzzle(filepath string, boost int) *Puzzle {
 	p := Puzzle{
 		Groups: make([]Group, 0, 10),
 	}
@@ -227,6 +227,10 @@ func NewPuzzle(filepath string) *Puzzle {
 			}
 			fmt.Sscanf(parts[index], " with an attack that does %d %s damage at initiative %d", &pow, &damagetype, &init)
 
+			if groupType == GroupImmune {
+				pow += boost
+			}
+
 			p.Groups = append(p.Groups, Group{
 				ID:         id,
 				Type:       groupType,
@@ -246,7 +250,7 @@ func NewPuzzle(filepath string) *Puzzle {
 		}
 	}
 
-	spew.Dump(p)
+	// spew.Dump(p)
 
 	input.Close()
 
@@ -265,13 +269,15 @@ func (t *Turn) Exec() int {
 	return deaths
 }
 
-func (p *Puzzle) Sim() {
+func (p *Puzzle) Sim(pretty bool) GroupType {
 	for {
 		turnorder := make([]Turn, 0, 10)
 
 		sort.Sort(ByInit(p.Groups))
 
-		fmt.Println("\nTarget phase:")
+		if pretty {
+			fmt.Println("\nTarget phase:")
+		}
 		// Decide turn order
 		for t := range p.Groups {
 			if p.Groups[t].Amount <= 0 {
@@ -280,11 +286,15 @@ func (p *Puzzle) Sim() {
 
 			target, potential := findTarget(&p.Groups[t], turnorder, p.Groups)
 			if target == nil {
-				fmt.Println("no targets")
+				if pretty {
+					fmt.Println("no targets")
+				}
 				continue
 			}
 
-			fmt.Printf("#%d:%s -> #%d:%s for %d damage\n", p.Groups[t].ID, p.Groups[t].Type, target.ID, target.Type, potential)
+			if pretty {
+				fmt.Printf("#%d:%s -> #%d:%s for %d damage\n", p.Groups[t].ID, p.Groups[t].Type, target.ID, target.Type, potential)
+			}
 
 			turnorder = append(turnorder, Turn{
 				Group:  &p.Groups[t],
@@ -294,34 +304,64 @@ func (p *Puzzle) Sim() {
 
 		if len(turnorder) == 0 {
 			fmt.Println("Combat over")
-			spew.Dump(p.Groups)
+			if pretty {
+				spew.Dump(p.Groups)
+			}
 			sum := 0
+			groupType := GroupInfection
 			for _, g := range p.Groups {
 				if g.Amount > 0 {
 					sum += g.Amount
 					fmt.Printf("#%d:%s contains %d units\n", g.ID, g.Type, g.Amount)
+					groupType = g.Type
 				}
 			}
-			fmt.Println("Sum alive:", sum)
-			return
+			fmt.Println("Sum alive:", sum, groupType)
+			return groupType
 		}
 
-		fmt.Println("\nAttack phase:")
+		if pretty {
+			fmt.Println("\nAttack phase:")
+		}
 		// Execute
 		for _, t := range turnorder {
-			fmt.Printf("#%d:%s -> #%d:%s", t.Group.ID, t.Group.Type, t.Target.ID, t.Target.Type)
-			num := t.Exec()
-			fmt.Printf(", killing %d units\n", num)
+			if pretty {
+				fmt.Printf("#%d:%s -> #%d:%s", t.Group.ID, t.Group.Type, t.Target.ID, t.Target.Type)
+				num := t.Exec()
+				fmt.Printf(", killing %d units\n", num)
+			} else {
+				t.Exec()
+			}
 		}
 	}
 }
 
 func main() {
 	// Test1
-	t := NewPuzzle("test1.txt")
-	t.Sim()
+	t := NewPuzzle("test1.txt", 0)
+	t.Sim(true)
+
+	// Test2
+	boost := 1
+	for {
+		t := NewPuzzle("test1.txt", boost)
+		if t.Sim(false) == GroupImmune {
+			break
+		}
+		boost++
+	}
 
 	// Puzzle1
-	p := NewPuzzle("input.txt")
-	p.Sim()
+	p := NewPuzzle("input.txt", 0)
+	p.Sim(false)
+
+	// Puzzle2
+	boost = 1
+	for {
+		p := NewPuzzle("input.txt", boost)
+		if p.Sim(false) == GroupImmune {
+			break
+		}
+		boost++
+	}
 }
