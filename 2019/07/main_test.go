@@ -28,7 +28,7 @@ func TestCircuit(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got, _, err := RunCircuit(test.ops, test.input)
+		got, err := RunCircuit(test.ops, test.input, false)
 		if err != nil {
 			t.Errorf("Error while executing test: %s", err.Error())
 			continue
@@ -59,7 +59,7 @@ func TestPhase(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got, err := FindPhaseSettings(test.ops)
+		got, err := FindPhaseSettings(test.ops, 0, 4)
 		if err != nil {
 			t.Errorf("Error while executing test: %s", err.Error())
 			continue
@@ -69,3 +69,28 @@ func TestPhase(t *testing.T) {
 		}
 	}
 }
+
+/*
+func TestLoop(t *testing.T) {
+	tests := []struct {
+		ops      []int
+		expected int
+	}{
+		{
+			ops:      []int{3, 26, 1001, 26, -4, 26, 3, 27, 1002, 27, 2, 27, 1, 27, 26, 27, 4, 27, 1001, 28, -1, 28, 1005, 28, 6, 99, 0, 0, 5},
+			expected: 0,
+		},
+	}
+
+	for _, test := range tests {
+		got, err := FindPhaseSettingsLoop(test.ops)
+		if err != nil {
+			t.Errorf("Error while executing test: %s", err.Error())
+			continue
+		}
+		if got != test.expected {
+			t.Errorf("%+v: Got %+v, expected %+v", test.ops, got, test.expected)
+		}
+	}
+}
+*/

@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -45,16 +43,23 @@ func getArgPos(ops []int, pos int, mode ModeType) (int, error) {
 	return pos, nil
 }
 
-func ExecuteProgram(ops []int, input func() int, output io.Writer, debug bool) ([]int, error) {
+type Amplifier struct {
+	ops    []int
+	pc     int
+	Halted bool
+}
+
+func (amp *Amplifier) Iterate(input func() int, yieldOnInput bool, debug bool) (int, bool, error) {
 	log := ioutil.Discard
 	if debug {
 		log = os.Stdout
 	}
-	var pc int
-	for pc < len(ops) {
-		op := OpType(ops[pc])
+	for amp.pc < len(amp.ops) {
+		op := OpType(amp.ops[amp.pc])
 		if op == OpEnd {
-			break
+			fmt.Fprintf(log, "Halt!\n")
+			amp.Halted = true
+			return 0, true, nil
 		}
 
 		aMode := ModePosition
@@ -67,151 +72,169 @@ func ExecuteProgram(ops []int, input func() int, output io.Writer, debug bool) (
 
 		switch op {
 		case OpAdd:
-			a, err := getArgPos(ops, pc+1, aMode)
+			a, err := getArgPos(amp.ops, amp.pc+1, aMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			b, err := getArgPos(ops, pc+2, bMode)
+			b, err := getArgPos(amp.ops, amp.pc+2, bMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			o, err := getArgPos(ops, pc+3, ModePosition)
+			o, err := getArgPos(amp.ops, amp.pc+3, ModePosition)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			ops[o] = ops[a] + ops[b]
-			fmt.Fprintf(log, "Setting %d @%d\n", ops[o], o)
-			pc += 4
+			amp.ops[o] = amp.ops[a] + amp.ops[b]
+			fmt.Fprintf(log, "Setting %d @%d\n", amp.ops[o], o)
+			amp.pc += 4
 		case OpMul:
-			a, err := getArgPos(ops, pc+1, aMode)
+			a, err := getArgPos(amp.ops, amp.pc+1, aMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			b, err := getArgPos(ops, pc+2, bMode)
+			b, err := getArgPos(amp.ops, amp.pc+2, bMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			o, err := getArgPos(ops, pc+3, ModePosition)
+			o, err := getArgPos(amp.ops, amp.pc+3, ModePosition)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			ops[o] = ops[a] * ops[b]
-			fmt.Fprintf(log, "Setting %d @%d\n", ops[o], o)
-			pc += 4
+			amp.ops[o] = amp.ops[a] * amp.ops[b]
+			fmt.Fprintf(log, "Setting %d @%d\n", amp.ops[o], o)
+			amp.pc += 4
 		case OpInput:
-			a, err := getArgPos(ops, pc+1, ModePosition)
+			a, err := getArgPos(amp.ops, amp.pc+1, ModePosition)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			ops[a] = input()
-			fmt.Fprintf(log, "Inputting: %d @%d\n", ops[a], a)
-			pc += 2
+			amp.ops[a] = input()
+			fmt.Fprintf(log, "Inputting: %d @%d\n", amp.ops[a], a)
+			amp.pc += 2
+			if yieldOnInput {
+				return 0, false, nil
+			}
 		case OpOutput:
-			a, err := getArgPos(ops, pc+1, aMode)
+			a, err := getArgPos(amp.ops, amp.pc+1, aMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			if output != nil {
-				fmt.Fprintf(output, "%d", ops[a])
-			}
-			pc += 2
+			fmt.Fprintf(log, "Outputting: %d @%d\n", amp.ops[a], a)
+			amp.pc += 2
+			return amp.ops[a], false, nil
 		case OpJumpTrue:
-			a, err := getArgPos(ops, pc+1, aMode)
+			a, err := getArgPos(amp.ops, amp.pc+1, aMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			b, err := getArgPos(ops, pc+2, bMode)
+			b, err := getArgPos(amp.ops, amp.pc+2, bMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			if ops[a] != 0 {
-				pc = ops[b]
-				fmt.Fprintf(log, "Jump to %d\n", pc)
+			if amp.ops[a] != 0 {
+				amp.pc = amp.ops[b]
+				fmt.Fprintf(log, "Jump to %d\n", amp.pc)
 			} else {
-				pc += 3
+				amp.pc += 3
 			}
 		case OpJumpFalse:
-			a, err := getArgPos(ops, pc+1, aMode)
+			a, err := getArgPos(amp.ops, amp.pc+1, aMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			b, err := getArgPos(ops, pc+2, bMode)
+			b, err := getArgPos(amp.ops, amp.pc+2, bMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			if ops[a] == 0 {
-				pc = ops[b]
-				fmt.Fprintf(log, "Jump to %d\n", pc)
+			if amp.ops[a] == 0 {
+				amp.pc = amp.ops[b]
+				fmt.Fprintf(log, "Jump to %d\n", amp.pc)
 			} else {
-				pc += 3
+				amp.pc += 3
 			}
 		case OpLessThan:
-			a, err := getArgPos(ops, pc+1, aMode)
+			a, err := getArgPos(amp.ops, amp.pc+1, aMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			b, err := getArgPos(ops, pc+2, bMode)
+			b, err := getArgPos(amp.ops, amp.pc+2, bMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			o, err := getArgPos(ops, pc+3, ModePosition)
+			o, err := getArgPos(amp.ops, amp.pc+3, ModePosition)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			if ops[a] < ops[b] {
-				ops[o] = 1
+			if amp.ops[a] < amp.ops[b] {
+				amp.ops[o] = 1
 			} else {
-				ops[o] = 0
+				amp.ops[o] = 0
 			}
-			pc += 4
+			amp.pc += 4
 		case OpEquals:
-			a, err := getArgPos(ops, pc+1, aMode)
+			a, err := getArgPos(amp.ops, amp.pc+1, aMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			b, err := getArgPos(ops, pc+2, bMode)
+			b, err := getArgPos(amp.ops, amp.pc+2, bMode)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			o, err := getArgPos(ops, pc+3, ModePosition)
+			o, err := getArgPos(amp.ops, amp.pc+3, ModePosition)
 			if err != nil {
-				return nil, err
+				return 0, false, err
 			}
-			if ops[a] == ops[b] {
-				ops[o] = 1
+			if amp.ops[a] == amp.ops[b] {
+				amp.ops[o] = 1
 			} else {
-				ops[o] = 0
+				amp.ops[o] = 0
 			}
-			pc += 4
+			amp.pc += 4
 		default:
-			return nil, fmt.Errorf("invalid op: %d", op)
+			return 0, false, fmt.Errorf("invalid op: %d", op)
 		}
 	}
-	return ops, nil
+	return 0, false, nil
 }
 
-func RunCircuit(ops []int, inputs []int) (int, []int, error) {
-	prog := make([]int, len(ops))
-	input := 0
-	outputs := []int{}
-	for _, i := range inputs {
-		copy(prog, ops)
-
-		ii := i
-		var b bytes.Buffer
-		_, err := ExecuteProgram(prog, func() int {
-			j := ii
-			ii = input
-			return j
-		}, io.Writer(&b), false)
-		if err != nil {
-			return -1, nil, fmt.Errorf("error while executing: %w", err)
-		}
-		input, _ = strconv.Atoi(b.String())
-		outputs = append(outputs, input)
+func RunCircuit(ops []int, inputs []int, debug bool) (int, error) {
+	amps := make([]Amplifier, len(inputs))
+	for i := range amps {
+		amps[i].ops = make([]int, len(ops))
+		copy(amps[i].ops, ops)
 	}
 
-	return input, outputs, nil
+	// Set phase values
+	for i := range amps {
+		_, _, err := amps[i].Iterate(func() int {
+			return inputs[i]
+		}, true, debug)
+		if err != nil {
+			return 0, fmt.Errorf("error while executing: %w", err)
+		}
+	}
+
+	// Run output
+	var output int
+	var halt bool
+	for !halt {
+		for i := range amps {
+			var o int
+			var err error
+			o, halt, err = amps[i].Iterate(func() int {
+				return output
+			}, false, debug)
+			if err != nil {
+				return 0, fmt.Errorf("error while executing: %w", err)
+			}
+			if halt {
+				break
+			}
+			output = o
+		}
+	}
+
+	return output, nil
 }
 
 func verifyInput(input []int) bool {
@@ -225,19 +248,20 @@ func verifyInput(input []int) bool {
 	return true
 }
 
-func FindPhaseSettings(ops []int) (int, error) {
+func FindPhaseSettings(ops []int, lo, hi int) (int, error) {
 	result := 0
-	for i := 0; i <= 4; i++ {
-		for j := 0; j <= 4; j++ {
-			for k := 0; k <= 4; k++ {
-				for l := 0; l <= 4; l++ {
-					for m := 0; m <= 4; m++ {
+
+	for i := lo; i <= hi; i++ {
+		for j := lo; j <= hi; j++ {
+			for k := lo; k <= hi; k++ {
+				for l := lo; l <= hi; l++ {
+					for m := lo; m <= hi; m++ {
 						input := []int{i, j, k, l, m}
 						if !verifyInput(input) {
 							continue
 						}
 
-						amp, _, err := RunCircuit(ops, input)
+						amp, err := RunCircuit(ops, input, false)
 						if err != nil {
 							return 0, fmt.Errorf("could not run phase check: %w", err)
 						}
@@ -282,7 +306,7 @@ func main() {
 	fmt.Println(ops)
 
 	// Part 1
-	result, err := FindPhaseSettings(ops)
+	result, err := FindPhaseSettings(ops, 0, 4)
 	if err != nil {
 		log.Fatal(fmt.Errorf("could not run part 1: %w", err))
 	}
