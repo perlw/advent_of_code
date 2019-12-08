@@ -217,6 +217,7 @@ func RunCircuit(ops []int, inputs []int, debug bool) (int, error) {
 	// Run output
 	var output int
 	var halt bool
+	var count int
 	for !halt {
 		for i := range amps {
 			var o int
@@ -231,6 +232,11 @@ func RunCircuit(ops []int, inputs []int, debug bool) (int, error) {
 				break
 			}
 			output = o
+		}
+
+		if debug {
+			count++
+			fmt.Printf("Iteration: %d -> %d\n", count, output)
 		}
 	}
 
@@ -311,4 +317,11 @@ func main() {
 		log.Fatal(fmt.Errorf("could not run part 1: %w", err))
 	}
 	fmt.Printf("Part 1: %d\n", result)
+
+	// Part 2
+	result, err = FindPhaseSettings(ops, 5, 9)
+	if err != nil {
+		log.Fatal(fmt.Errorf("could not run part 2: %w", err))
+	}
+	fmt.Printf("Part 2: %d\n", result)
 }
