@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -283,7 +284,7 @@ func RunGame(ops []int, quarters int, haveScreen bool) (int, int) {
 		}
 
 		if haveScreen {
-			fmt.Printf("\nScore: %d\n", score)
+			fmt.Printf("\033cScore: %d\n", score)
 			fmt.Printf("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n")
 			for y := 0; y < sy; y++ {
 				i := y * sx
@@ -314,6 +315,10 @@ func RunGame(ops []int, quarters int, haveScreen bool) (int, int) {
 }
 
 func main() {
+	var haveScreen bool
+	flag.BoolVar(&haveScreen, "have-screen", false, "shows the game running")
+	flag.Parse()
+
 	input, err := os.Open("input.txt")
 	if err != nil {
 		log.Fatal(fmt.Errorf("could not open input file: %w", err))
@@ -339,7 +344,7 @@ func main() {
 		log.Fatal(fmt.Errorf("could not read ops: %w", err))
 	}
 
-	tiles, score := RunGame(ops, 2, false)
+	tiles, score := RunGame(ops, 2, haveScreen)
 	fmt.Printf("Part 1 - Tiles: %d\n", tiles)
 	fmt.Printf("Part 2 - Score: %d\n", score)
 }
