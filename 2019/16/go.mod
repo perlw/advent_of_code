@@ -1,3 +1,3 @@
-module github.com/perlw/advent_of_code/2019/12
+module github.com/perlw/advent_of_code/2019/16
 
 go 1.13
