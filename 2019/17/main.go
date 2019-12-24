@@ -429,33 +429,62 @@ func scanPath(grid []rune, width, height int, debug bool) []Step {
 }
 
 func NotifyRobots(ops []int, grid []rune, width, height int, debug bool) int {
-	steps := scanPath(grid, width, height, debug)
+	steps := scanPath(grid, width, height, false)
 	for i := range steps {
 		fmt.Printf("%c%d ", steps[i].r, steps[i].i)
 	}
 	fmt.Println()
-	fmt.Println(len(steps))
-	/*
-		com := NewComputer(ops)
-		com.mem[0]=2
-		for !com.Halted {
-			out, halt, err := com.Iterate(func() int {
-				return 0
-			}, false, false)
-			if err != nil {
-				log.Fatal(fmt.Errorf("failure while executing computer: %w", err))
-			}
-			if halt {
-				break
-			}
 
-			if debug {
-				waitEnter()
+	// Manually calculated path is in steps.txt
+	// The method to calculate was straightforward enough, will automate/optimize at some point
+	inputs := []rune{
+		// Movement routine
+		'A', ',', 'B', ',', 'A', ',', 'C', ',', 'A', ',', 'B', ',', 'A', ',', 'C', ',', 'B', ',', 'C', '\n',
+
+		// A
+		'R', ',', '4', ',', 'L', ',', '1', '2', ',', 'L', ',', '8', ',', 'R', ',', '4', '\n',
+		// B
+		'L', ',', '8', ',', 'R', ',', '1', '0', ',', 'R', ',', '1', '0', ',', 'R', ',', '6', '\n',
+		// C
+		'R', ',', '4', ',', 'R', ',', '1', '0', ',', 'L', ',', '1', '2', '\n',
+
+		// Draw
+		'n', '\n',
+	}
+	if debug {
+		inputs[len(inputs)-2] = 'y'
+	}
+
+	com := NewComputer(ops)
+	com.mem[0] = 2
+	fmt.Println("===<executing>===")
+	var i int
+	var lastOk int
+	for !com.Halted {
+		out, halt, err := com.Iterate(func() int {
+			r := inputs[i]
+			i++
+			if r == '\n' {
+				fmt.Printf("Input %d (\\n) into machine\n", r)
+			} else {
+				fmt.Printf("Input %d (%c) into machine\n", r, r)
 			}
+			return int(r)
+		}, true, false)
+		if err != nil {
+			log.Fatal(fmt.Errorf("failure while executing computer: %w", err))
 		}
-	*/
+		if halt {
+			break
+		}
 
-	return 0
+		if debug {
+			fmt.Printf("%c", rune(out))
+		}
+		lastOk = out
+	}
+
+	return lastOk
 }
 
 func main() {
