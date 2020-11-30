@@ -1,5 +1,8 @@
 package pq
 
+// CompareFunc defines a comparison function.
+type CompareFunc func(a, b interface{}) bool
+
 // Item is an item in the PriorityQueue.
 type Item struct {
 	Value    interface{}
@@ -14,7 +17,7 @@ func (pq PriorityQueue) Len() int {
 }
 
 func (pq PriorityQueue) Less(i, j int) bool {
-	return pq[i].Priority > pq[j].Priority
+	return pq[i].Priority < pq[j].Priority
 }
 
 func (pq PriorityQueue) Swap(i, j int) {
@@ -35,4 +38,14 @@ func (pq *PriorityQueue) Pop() interface{} {
 	(*pq)[n-1] = nil
 	*pq = (*pq)[0 : n-1]
 	return item
+}
+
+// Has checks if queue has an item.
+func (pq PriorityQueue) Has(x interface{}, cmp CompareFunc) bool {
+	for _, item := range pq {
+		if cmp(x, item.Value) {
+			return true
+		}
+	}
+	return false
 }

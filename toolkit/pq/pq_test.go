@@ -19,10 +19,10 @@ func verify(t *testing.T, pq *PriorityQueue, expects []string) {
 
 func TestShouldContainItems(t *testing.T) {
 	input := map[string]int{
-		"cat":     99,
-		"hamster": 98,
-		"rat":     75,
-		"dog":     0,
+		"cat":     0,
+		"hamster": 2,
+		"rat":     10,
+		"dog":     25,
 	}
 	expects := []string{
 		"cat",
@@ -45,10 +45,10 @@ func TestShouldContainItems(t *testing.T) {
 
 func TestShouldSortItems(t *testing.T) {
 	input := map[string]int{
-		"hamster": 98,
-		"dog":     0,
-		"rat":     75,
-		"cat":     99,
+		"rat":     10,
+		"cat":     0,
+		"dog":     25,
+		"hamster": 2,
 	}
 	expects := []string{
 		"cat",
@@ -71,10 +71,10 @@ func TestShouldSortItems(t *testing.T) {
 
 func TestShouldPushItems(t *testing.T) {
 	input := map[string]int{
-		"hamster": 98,
-		"dog":     0,
-		"rat":     75,
-		"cat":     99,
+		"rat":     10,
+		"cat":     0,
+		"dog":     25,
+		"hamster": 2,
 	}
 	expects := []string{
 		"cat",
@@ -95,8 +95,32 @@ func TestShouldPushItems(t *testing.T) {
 
 	heap.Push(&pq, &Item{
 		Value:    "dangernoodle",
-		Priority: -1,
+		Priority: 99,
 	})
 
 	verify(t, &pq, expects)
+}
+
+func TestShouldHaveItem(t *testing.T) {
+	input := map[string]int{
+		"rat":     10,
+		"cat":     0,
+		"dog":     25,
+		"hamster": 2,
+	}
+
+	pq := make(PriorityQueue, 0, len(input))
+	for value, priority := range input {
+		pq = append(pq, &Item{
+			Value:    value,
+			Priority: priority,
+		})
+	}
+	heap.Init(&pq)
+
+	if !pq.Has("cat", func(a, b interface{}) bool {
+		return a.(string) == b.(string)
+	}) {
+		t.Errorf("expected to find cat")
+	}
 }
