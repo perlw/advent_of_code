@@ -19,8 +19,30 @@ type Grid struct {
 	Label  string
 }
 
-// TODO: Grow...
-// TODO: Shrink...
+// TODO: Grow.
+// TODO: Shrink.
+// TODO: Cellmap for prettyprints.
+
+// FromRunes reads in cells from a rune-slice.
+// NOTE: Does not update width/height.
+func (g *Grid) FromRunes(runes []rune) {
+	g.Cells = make([]Cell, len(runes))
+	for i, r := range runes {
+		g.Cells[i].R = r
+	}
+}
+
+// Clone returns a deep copy of the grid.
+func (g *Grid) Clone() *Grid {
+	clone := Grid{
+		Cells:  make([]Cell, len(g.Cells)),
+		Width:  g.Width,
+		Height: g.Height,
+		Label:  g.Label,
+	}
+	copy(clone.Cells, g.Cells)
+	return &clone
+}
 
 // Set sets a cell at location.
 func (g *Grid) Set(x, y int, c Cell) {
@@ -62,7 +84,7 @@ func (g Grid) String() string {
 	for x := 1; x < g.Width+3; x++ {
 		fmt.Fprintf(&result, "─")
 	}
-	fmt.Fprintf(&result, "╯\n")
+	fmt.Fprintf(&result, "╯")
 
 	return result.String()
 }
