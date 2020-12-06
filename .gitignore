@@ -6,3 +6,5 @@ bin/
 tags
 *.gif
 *.mp4
+zig-cache/
+main
