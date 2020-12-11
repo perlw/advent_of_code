@@ -10,8 +10,26 @@ import (
 // SeatMap ...
 type SeatMap []rune
 
-// Step ...
-func (s SeatMap) Step(stride int) bool {
+func (s SeatMap) ray(stride int, x, y int, dir [2]int) ([2]int, bool) {
+	h := len(s) / stride
+	x += dir[0]
+	y += dir[1]
+	for y >= 0 && y < h && x >= 0 && x < stride {
+		r := s[(y*stride)+x]
+		if r == '#' {
+			return [2]int{x, y}, true
+		} else if r == 'L' {
+			break
+		}
+
+		x += dir[0]
+		y += dir[1]
+	}
+	return [2]int{-1, -1}, false
+}
+
+// StepAdjacent ...
+func (s SeatMap) StepAdjacent(stride int) bool {
 	oldSeatMap := make(SeatMap, len(s))
 	copy(oldSeatMap, s)
 
@@ -43,6 +61,51 @@ func (s SeatMap) Step(stride int) bool {
 				s[j] = '#'
 				dirty = true
 			} else if oldSeatMap[j] == '#' && numTakenSeats >= 4 {
+				s[j] = 'L'
+				dirty = true
+			}
+		}
+	}
+
+	return dirty
+}
+
+// StepRay ...
+func (s SeatMap) StepRay(stride int) bool {
+	rays := [][2]int{
+		{-1, -1},
+		{0, -1},
+		{1, -1},
+		{1, 0},
+		{1, 1},
+		{0, 1},
+		{-1, 1},
+		{-1, 0},
+	}
+
+	oldSeatMap := make(SeatMap, len(s))
+	copy(oldSeatMap, s)
+
+	var dirty bool
+	for y := 0; y < len(s)/stride; y++ {
+		i := y * stride
+		for x := 0; x < stride; x++ {
+			j := i + x
+			if oldSeatMap[j] == '.' {
+				continue
+			}
+
+			var numTakenSeats int
+			for _, ray := range rays {
+				if _, ok := oldSeatMap.ray(stride, x, y, ray); ok {
+					numTakenSeats++
+				}
+			}
+
+			if oldSeatMap[j] == 'L' && numTakenSeats == 0 {
+				s[j] = '#'
+				dirty = true
+			} else if oldSeatMap[j] == '#' && numTakenSeats >= 5 {
 				s[j] = 'L'
 				dirty = true
 			}
@@ -87,7 +150,7 @@ func Task1(seatMap SeatMap, stride int, print bool) int {
 	if print {
 		fmt.Println(seatMap.String(stride))
 	}
-	for seatMap.Step(stride) {
+	for seatMap.StepAdjacent(stride) {
 		if print {
 			fmt.Println(seatMap.String(stride))
 		}
@@ -103,7 +166,23 @@ func Task1(seatMap SeatMap, stride int, print bool) int {
 }
 
 // Task2 ...
-func Task2() {
+func Task2(seatMap SeatMap, stride int, print bool) int {
+	if print {
+		fmt.Println(seatMap.String(stride))
+	}
+	for seatMap.StepRay(stride) {
+		if print {
+			fmt.Println(seatMap.String(stride))
+		}
+	}
+
+	var result int
+	for _, r := range seatMap {
+		if r == '#' {
+			result++
+		}
+	}
+	return result
 }
 
 func main() {
@@ -127,6 +206,7 @@ func main() {
 	result := Task1(seatMap, stride, false)
 	fmt.Printf("Task 1: %d\n", result)
 
-	/*result = Task2(input)
-	fmt.Printf("Task 2: %d\n", result)*/
+	copy(seatMap, input)
+	result = Task2(seatMap, stride, false)
+	fmt.Printf("Task 2: %d\n", result)
 }
