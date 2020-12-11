@@ -1,6 +1,9 @@
 package main
 
 import (
+	"bufio"
+	"os"
+	"strconv"
 	"testing"
 )
 
@@ -94,12 +97,28 @@ func TestTask2ShouldFindResult(t *testing.T) {
 			3,
 		},
 	}
-	expected := []int{8, 0}
+	expected := []int{8, 19208}
 
 	for i, test := range tests {
 		result := Task2(test)
 		if result != expected[i] {
 			t.Errorf("%d: got %d, expected %d", i, result, expected)
 		}
+	}
+}
+
+func BenchmarkTask2(b *testing.B) {
+	file, _ := os.Open("input.txt")
+	scanner := bufio.NewScanner(file)
+
+	input := make([]int, 0, 100)
+	for scanner.Scan() {
+		val, _ := strconv.Atoi(scanner.Text())
+		input = append(input, val)
+	}
+	file.Close()
+
+	for i := 0; i < b.N; i++ {
+		Task2(input)
 	}
 }

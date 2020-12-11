@@ -29,66 +29,52 @@ func Task1(input []int) int {
 	return ones * threes
 }
 
-func findVariations(input []int) int {
-	fmt.Printf("%+v", input)
-
-	if len(input) <= 2 {
+func tri(n int) int {
+	if n < 3 {
+		return 0
+	}
+	if n == 3 {
 		return 1
 	}
-	if len(input) == 3 {
-		if input[2]-input[0] <= 3 {
-			return 2
-		}
-		return 1
-	}
-
-	return -1
-
-	/*
-		var count int
-		for i := 1; i < len(input)-1; i++ {
-			if input[i+1]-input[i-1] <= 3 {
-				sub := append([]int{}, input[:i]...)
-				sub = append(sub, input[i+1:]...)
-
-				count += findVariations(sub, step+1)
-			}
-		}
-		fmt.Printf(" +%d\n", count+step)
-		return count + step
-	*/
+	return tri(n-1) + tri(n-2) + tri(n-3)
 }
 
 // Task2 ...
 func Task2(input []int) int {
-	variations := make([]int, 0, 10)
 
 	input = append([]int{0}, input...)
 	sort.Ints(input)
 	input = append(input, input[len(input)-1]+3)
 
-	fmt.Printf("%+v\n", input)
-
 	var marker int
+	samples := make([][]int, 0, 100)
+	var maxLen int
 	for i := 0; i < len(input)-1; i++ {
 		jolt := input[i+1] - input[i]
 		if jolt == 3 {
-			variations = append(variations, findVariations(input[marker:i+1]))
+			end := i
+			sample := input[marker:end]
+			if end == len(input)-1 {
+				sample = input[marker:]
+			}
+			if len(sample) > maxLen {
+				maxLen = len(sample)
+			}
+			samples = append(samples, sample)
 			marker = i + 1
 		}
 	}
 
-	return -1
-	/*
-		fmt.Printf("%#v\n", variations)
-		result := 1
-		for _, i := range variations {
-			result *= i
-		}
-		fmt.Printf("RES: %d\n", result)
+	triCached := make([]int, 0, 10)
+	for i := 0; i < maxLen+1; i++ {
+		triCached = append(triCached, tri(i+3))
+	}
 
-		return result
-	*/
+	result := 1
+	for _, i := range samples {
+		result *= triCached[len(i)]
+	}
+	return result
 }
 
 func main() {
