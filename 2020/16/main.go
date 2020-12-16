@@ -12,6 +12,8 @@ import (
 type Rule struct {
 	Name   string
 	Ranges [][2]int
+	Not    []int
+	Column int
 }
 
 // IsValid ...
@@ -52,6 +54,7 @@ func Task1(rules []Rule, tickets []Ticket) int {
 
 // Task2 ...
 func Task2(rules []Rule, tickets []Ticket, targetTicket Ticket) int {
+	// Find valid tickets.
 	validTickets := make([]Ticket, 0, len(tickets)/2)
 	for _, t := range tickets {
 		var invalid bool
@@ -73,24 +76,79 @@ func Task2(rules []Rule, tickets []Ticket, targetTicket Ticket) int {
 		}
 	}
 
-	rulePositions := make(map[string]int)
-	/*
-		for i := 0; i < len(validTickets[0].Values); i++ {
+	columns := make(map[int]int)
+	for i := 0; i < len(validTickets[0].Values); i++ {
+		columns[i] = -1
+	}
+	numColumns := len(columns)
+
+	// Whittle down columns one by one by identifying which rule is _not_ valid in
+	// a given column's values, then removing that column from the iteration, and
+	// running over it again.
+	for numColumns > 0 {
+		for i := range rules {
+			if rules[i].Column > -1 {
+				continue
+			}
+			rules[i].Not = make([]int, 0, 2)
+		}
+
+		for i := 0; i < len(columns); i++ {
+			if columns[i] > -1 {
+				continue
+			}
+
 			for _, t := range validTickets {
-				possible := make([]int, 0, 2)
-				for _, r := range rules {
-					if r.IsValid(t.Values[i]) {
-						possible = append(possible, i)
+				for ri, r := range rules {
+					if r.Column > -1 {
+						continue
 					}
-					fmt.Printf("checking %d for rule %s: %v\n", t.Values[i], r.Name, r.IsValid(t.Values[i]))
+
+					if !r.IsValid(t.Values[i]) {
+						rules[ri].Not = append(r.Not, i)
+					}
 				}
-				fmt.Printf("\tpossible: %+v\n", possible)
 			}
 		}
-	*/
-	fmt.Printf("%+v\n", rulePositions)
 
-	return -1
+		for ri, r := range rules {
+			if r.Column > -1 {
+				continue
+			}
+
+			if len(r.Not) == numColumns-1 {
+				for c, n := range columns {
+					if n > -1 {
+						continue
+					}
+
+					var found bool
+					for _, n := range r.Not {
+						if n == c {
+							found = true
+							break
+						}
+					}
+					if !found {
+						columns[c] = ri
+						rules[ri].Column = c
+						numColumns--
+						break
+					}
+				}
+			}
+		}
+	}
+
+	// Calculate result by multiplying the correct column-values from the target
+	// ticket.
+	result := 1
+	for _, r := range rules {
+		if strings.HasPrefix(r.Name, "departure") {
+			result *= targetTicket.Values[r.Column]
+		}
+	}
+	return result
 }
 
 func main() {
@@ -114,6 +172,8 @@ func main() {
 		rules = append(rules, Rule{
 			Name:   parts[0],
 			Ranges: ranges,
+			Not:    make([]int, 0, 2),
+			Column: -1,
 		})
 	}
 	scanner.Scan()

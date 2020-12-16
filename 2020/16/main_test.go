@@ -42,41 +42,4 @@ func TestTask1ShouldFindResult(t *testing.T) {
 }
 
 func TestTask2ShouldFindResult(t *testing.T) {
-	rules := []Rule{
-		{
-			Name:   "class",
-			Ranges: [][2]int{{1, 3}, {5, 7}},
-		},
-		{
-			Name:   "rules",
-			Ranges: [][2]int{{6, 11}, {33, 44}},
-		},
-		{
-			Name:   "seat",
-			Ranges: [][2]int{{13, 40}, {45, 50}},
-		},
-	}
-	ticket := Ticket{
-		Values: []int{11, 12, 13},
-	}
-	tickets := []Ticket{
-		{
-			Values: []int{7, 3, 47},
-		},
-		{
-			Values: []int{40, 4, 50},
-		},
-		{
-			Values: []int{55, 2, 20},
-		},
-		{
-			Values: []int{38, 6, 12},
-		},
-	}
-	expected := 0
-
-	result := Task2(rules, tickets, ticket)
-	if result != expected {
-		t.Errorf("got %d, expected %d", result, expected)
-	}
 }
