@@ -19,9 +19,14 @@ func TestTask1ShouldFindResult(t *testing.T) {
 }
 
 func TestTask2ShouldFindResult(t *testing.T) {
-	expected := -1
+	input := []rune{
+		'.', '#', '.',
+		'.', '.', '#',
+		'#', '#', '#',
+	}
+	expected := 848
 
-	result := Task2()
+	result := Task2(input, 3)
 	if result != expected {
 		t.Errorf("got %d, expected %d", result, expected)
 	}
