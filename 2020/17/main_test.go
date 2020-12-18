@@ -10,7 +10,7 @@ func TestTask1ShouldFindResult(t *testing.T) {
 		'.', '.', '#',
 		'#', '#', '#',
 	}
-	expected := -1
+	expected := 112
 
 	result := Task1(input, 3)
 	if result != expected {
