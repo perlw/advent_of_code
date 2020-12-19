@@ -9,6 +9,7 @@ func TestShouldReduceExpression(t *testing.T) {
 	tests := []string{
 		"1+2*3+4*5+6",
 		"2*3+(4*5)",
+		"1+(2*3)+(4*(5+6))",
 		"(2*3)+(4*5)",
 		"5+(8*3+9+3*4*3)",
 		"5*9*(7*3*3+9*3+(8+6*4))",
@@ -17,6 +18,7 @@ func TestShouldReduceExpression(t *testing.T) {
 	expected := []int{
 		71,
 		26,
+		51,
 		26,
 		437,
 		12240,
@@ -24,8 +26,8 @@ func TestShouldReduceExpression(t *testing.T) {
 	}
 
 	for i, test := range tests {
-		result := reduce([]rune(test))
-		fmt.Printf("%s => %d\n", test, result)
+		result := reduce([]rune(test), true)
+		fmt.Printf("[[%s => %d]]\n", test, result)
 		fmt.Println()
 		if result != expected[i] {
 			t.Errorf("%d: got %d, expected %d", i, result, expected[i])

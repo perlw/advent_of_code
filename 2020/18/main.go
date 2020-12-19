@@ -7,17 +7,24 @@ import (
 	"strings"
 )
 
-func reduce(exp []rune) int {
-	fmt.Printf("%s\n", string(exp))
+func reduce(exp []rune, debug bool) int {
+	if debug {
+		fmt.Printf("iter %s\n", string(exp))
+	}
 	var a, b int
 	var op rune
 
 	if len(exp) == 1 {
 		return int(exp[0] - '0')
-	} else if len(exp) <= 3 {
+	}
+	if len(exp) <= 3 {
 		a = int(exp[0] - '0')
 		b = int(exp[2] - '0')
 		op = exp[1]
+
+		if debug {
+			fmt.Printf("\t? %d %c %d\n", a, op, b)
+		}
 	} else {
 		if exp[len(exp)-1] == ')' {
 			count := 1
@@ -27,43 +34,47 @@ func reduce(exp []rune) int {
 				} else if exp[i] == '(' {
 					count--
 					if count == 0 {
-						if i > 0 {
-							fmt.Println(string(exp[:i-1]), string(exp[i-1]), string(exp[i+1:len(exp)-1]))
-							a = reduce(exp[:i-1])
+						if i == 0 {
+							return reduce(exp[i+1:len(exp)-1], debug)
+						} else {
+							a = reduce(exp[:i-1], debug)
+							b = reduce(exp[i+1:len(exp)-1], debug)
 							op = exp[i-1]
 						}
-						b = reduce(exp[i+1 : len(exp)-1])
+						break
 					}
 				}
 			}
 		} else {
+			a = reduce(exp[:len(exp)-2], debug)
 			b = int(exp[len(exp)-1] - '0')
 			op = exp[len(exp)-2]
-			a = reduce(exp[:len(exp)-2])
+		}
+
+		if debug {
+			fmt.Printf("\t# %d %c %d\n", a, op, b)
 		}
 	}
 
-	fmt.Printf("%d %c %d\n", a, op, b)
-
+	var result int
 	switch op {
 	case '*':
-		return a * b
+		result = a * b
 	case '+':
-		return a + b
-	case ')':
-		return a
-	case '(':
-		return b
+		result = a + b
+	}
+	if debug {
+		fmt.Printf("%d %c %d => %d\n", a, op, b, result)
 	}
 
-	return b
+	return result
 }
 
 // Task1 ...
 func Task1(input []string) int {
 	var result int
 	for i := range input {
-		result += reduce([]rune(input[i]))
+		result += reduce([]rune(input[i]), false)
 	}
 	return result
 }
