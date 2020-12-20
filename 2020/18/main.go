@@ -1,9 +1,9 @@
-// Note: Do NOT use this solutions as a good example. I hate it. It's a horrible,
-// mess of brute force, workarounds, and shortcuts, and is generally really not
-// a good idea. A syntax tree would be a better idea and what I should have done
-// from the beginning (but I tried to save time by using recursion instead).
-// I've fought overflows, indexing errors, recursion loops, general stubborn
-// stupidity, and I'm even two days behind.
+// Note: Do NOT use this solution as an example. I hate it. It's a horrible mess
+// of brute force, workarounds, and shortcuts, and is generally really not a
+// good idea. A syntax tree would be a better idea and what I should have done
+// from the beginning but I tried to save time by not thinking|I mean using
+// recursion instead.  I've fought overflows, indexing errors, recursion loops,
+// general stubborn stupidity, and I'm even two days behind.
 // But I guess I've learnt what _not_ to do as well.
 // Next year AoC, next year..
 
