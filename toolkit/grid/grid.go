@@ -19,6 +19,19 @@ type Grid struct {
 	Label  string
 }
 
+// FromRunes creates a new grid from a rune slice.
+func FromRunes(runes []rune, width, height int) Grid {
+	g := Grid{
+		Width:  width,
+		Height: height,
+	}
+	g.Cells = make([]Cell, len(runes))
+	for i, r := range runes {
+		g.Cells[i].R = r
+	}
+	return g
+}
+
 // TODO: Grow.
 // TODO: Shrink.
 // TODO: Cellmap for prettyprints.
