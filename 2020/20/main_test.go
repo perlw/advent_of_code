@@ -149,9 +149,10 @@ func TestTask1ShouldFindResult(t *testing.T) {
 }
 
 func TestTask2ShouldFindResult(t *testing.T) {
-	expect := -1
+	input := readTestInput()
+	expect := 273
 
-	result := Task2()
+	result := Task2(input, true)
 	if result != expect {
 		t.Errorf("got %d, expected %d", result, expect)
 	}
