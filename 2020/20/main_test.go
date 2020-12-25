@@ -142,7 +142,7 @@ func TestTask1ShouldFindResult(t *testing.T) {
 	input := readTestInput()
 	expect := 20899048083289
 
-	result := Task1(input)
+	result := Task1(input, true)
 	if result != expect {
 		t.Errorf("got %d, expected %d", result, expect)
 	}
