@@ -13,10 +13,79 @@ import (
 // Tiles ...
 type Tiles map[int]grid.Grid
 
-func (ts Tiles) buildPosssibilities(debug bool) map[int]map[int][]string {
-	result := make(map[int]map[int][]string)
+// Possibilities ...
+type Possibilities struct {
+	T map[int][]string
+	B map[int][]string
+	L map[int][]string
+	R map[int][]string
+}
+
+// Count ...
+func (p Possibilities) Count() int {
+	return len(p.T) + len(p.B) + len(p.L) + len(p.R)
+}
+
+func addPossibility(
+	p Possibilities, l, r, t, b bool, transform string, id int,
+) Possibilities {
+	if t && strings.Contains(transform, "h") {
+		if _, ok := p.B[id]; !ok {
+			p.B[id] = make([]string, 0, 10)
+		}
+		p.B[id] = append(p.B[id], transform)
+	} else if t && !strings.Contains(transform, "h") {
+		if _, ok := p.T[id]; !ok {
+			p.T[id] = make([]string, 0, 10)
+		}
+		p.T[id] = append(p.T[id], transform)
+	}
+	if b && strings.Contains(transform, "h") {
+		if _, ok := p.T[id]; !ok {
+			p.T[id] = make([]string, 0, 10)
+		}
+		p.T[id] = append(p.T[id], transform)
+	} else if b && !strings.Contains(transform, "h") {
+		if _, ok := p.B[id]; !ok {
+			p.B[id] = make([]string, 0, 10)
+		}
+		p.B[id] = append(p.B[id], transform)
+	}
+	if l && strings.Contains(transform, "v") {
+		if _, ok := p.R[id]; !ok {
+			p.R[id] = make([]string, 0, 10)
+		}
+		p.R[id] = append(p.R[id], transform)
+	} else if l && !strings.Contains(transform, "v") {
+		if _, ok := p.L[id]; !ok {
+			p.L[id] = make([]string, 0, 10)
+		}
+		p.L[id] = append(p.L[id], transform)
+	}
+	if r && strings.Contains(transform, "v") {
+		if _, ok := p.L[id]; !ok {
+			p.L[id] = make([]string, 0, 10)
+		}
+		p.L[id] = append(p.L[id], transform)
+	} else if r && !strings.Contains(transform, "v") {
+		if _, ok := p.R[id]; !ok {
+			p.R[id] = make([]string, 0, 10)
+		}
+		p.R[id] = append(p.R[id], transform)
+	}
+
+	return p
+}
+
+func (ts Tiles) buildPosssibilities(debug bool) map[int]Possibilities {
+	result := make(map[int]Possibilities)
 	for i := range ts {
-		result[i] = make(map[int][]string)
+		result[i] = Possibilities{
+			T: make(map[int][]string),
+			B: make(map[int][]string),
+			L: make(map[int][]string),
+			R: make(map[int][]string),
+		}
 		var count int
 		for j := range ts {
 			if j == i {
@@ -28,10 +97,7 @@ func (ts Tiles) buildPosssibilities(debug bool) map[int]map[int][]string {
 			l, r, t, b := compareEdges(ts[i], g)
 			if l || r || t || b {
 				count++
-				if _, ok := result[i][j]; !ok {
-					result[i][j] = make([]string, 0, 10)
-				}
-				result[i][j] = append(result[i][j], "none")
+				result[i] = addPossibility(result[i], l, r, t, b, "none", j)
 				if debug {
 					fmt.Printf("potential %d -> %d\n", i, j)
 				}
@@ -42,10 +108,7 @@ func (ts Tiles) buildPosssibilities(debug bool) map[int]map[int][]string {
 			l, r, t, b = compareEdges(ts[i], g)
 			if l || r || t || b {
 				count++
-				if _, ok := result[i][j]; !ok {
-					result[i][j] = make([]string, 0, 10)
-				}
-				result[i][j] = append(result[i][j], "hflip")
+				result[i] = addPossibility(result[i], l, r, t, b, "hflip", j)
 				if debug {
 					fmt.Printf("potential hflip %d -> %d\n", i, j)
 				}
@@ -56,45 +119,68 @@ func (ts Tiles) buildPosssibilities(debug bool) map[int]map[int][]string {
 			l, r, t, b = compareEdges(ts[i], g)
 			if l || r || t || b {
 				count++
-				if _, ok := result[i][j]; !ok {
-					result[i][j] = make([]string, 0, 10)
+				result[i] = addPossibility(result[i], l, r, t, b, "vflip", j)
+				if debug {
+					fmt.Printf("potential vflip %d -> %d\n", i, j)
 				}
-				result[i][j] = append(result[i][j], "vflip")
+			}
+
+			g = *(&tile).Clone()
+			hflipGrid(&g)
+			vflipGrid(&g)
+			l, r, t, b = compareEdges(ts[i], g)
+			if l || r || t || b {
+				count++
+				result[i] = addPossibility(result[i], l, r, t, b, "hvflip", j)
 				if debug {
 					fmt.Printf("potential hvflip %d -> %d\n", i, j)
 				}
 			}
 
 			g = *(&tile).Clone()
-			for u := 0; u < 3; u++ {
-				rotateGrid(&g)
-				l, r, t, b = compareEdges(ts[i], g)
-				if l || r || t || b {
-					count++
-					if _, ok := result[i][j]; !ok {
-						result[i][j] = make([]string, 0, 10)
-					}
-					result[i][j] = append(result[i][j], fmt.Sprintf("rot%d", u+1))
-					if debug {
-						fmt.Printf("potential %d rot %d -> %d\n", u+1, i, j)
-					}
+			rotateGrid(&g)
+			l, r, t, b = compareEdges(ts[i], g)
+			if l || r || t || b {
+				count++
+				result[i] = addPossibility(
+					result[i], l, r, t, b, "rot", j,
+				)
+				if debug {
+					fmt.Printf("potential rot %d -> %d\n", i, j)
+				}
+			}
+			vflipGrid(&g)
+			l, r, t, b = compareEdges(ts[i], g)
+			if l || r || t || b {
+				count++
+				result[i] = addPossibility(
+					result[i], l, r, t, b, "vfliprot", j,
+				)
+				if debug {
+					fmt.Printf("potential vfliprot %d -> %d\n", i, j)
 				}
 			}
 
-			g = *(&tile).Clone()
+			hflipGrid(&g)
+			l, r, t, b = compareEdges(ts[i], g)
+			if l || r || t || b {
+				count++
+				result[i] = addPossibility(
+					result[i], l, r, t, b, "hfliprot", j,
+				)
+				if debug {
+					fmt.Printf("potential hfliprot %d -> %d\n", i, j)
+				}
+			}
 			vflipGrid(&g)
-			for u := 0; u < 3; u++ {
-				rotateGrid(&g)
-				l, r, t, b = compareEdges(ts[i], g)
-				if l || r || t || b {
-					count++
-					if _, ok := result[i][j]; !ok {
-						result[i][j] = make([]string, 0, 10)
-					}
-					result[i][j] = append(result[i][j], fmt.Sprintf("fliprot%d", u+1))
-					if debug {
-						fmt.Printf("potential %d fliprot %d -> %d\n", u+1, i, j)
-					}
+			l, r, t, b = compareEdges(ts[i], g)
+			if l || r || t || b {
+				count++
+				result[i] = addPossibility(
+					result[i], l, r, t, b, "hvfliprot", j,
+				)
+				if debug {
+					fmt.Printf("potential hvfliprot %d -> %d\n", i, j)
 				}
 			}
 		}
@@ -189,7 +275,7 @@ func Task1(input Tiles, debug bool) int {
 
 	result := 1
 	for i := range possibilities {
-		if len(possibilities[i]) == 2 {
+		if possibilities[i].Count() == 2 {
 			result *= i
 		}
 	}
@@ -203,17 +289,34 @@ func Task2(input Tiles, debug bool) int {
 		fmt.Printf("%+v\n", possibilities)
 	}
 
-	corners := make([]int, 0, 4)
+	corners := struct {
+		tl, tr, bl, br int
+	}{}
 	fmt.Println()
-	for i := range possibilities {
-		if len(possibilities[i]) == 2 {
-			corners = append(corners, i)
+	for i, p := range possibilities {
+		if p.Count() == 2 {
+			if len(p.T) > 0 && len(p.R) > 0 {
+				fmt.Printf("tl: %d %+v\n", i, p)
+				corners.tl = i
+			}
+			if len(p.T) > 0 && len(p.L) > 0 {
+				fmt.Printf("tr: %d %+v\n", i, p)
+				corners.tr = i
+			}
+			if len(p.B) > 0 && len(p.R) > 0 {
+				fmt.Printf("bl: %d %+v\n", i, p)
+				corners.bl = i
+			}
+			if len(p.B) > 0 && len(p.L) > 0 {
+				fmt.Printf("br: %d %+v\n", i, p)
+				corners.br = i
+			}
 		}
 	}
 
 	fmt.Printf("%+v\n", corners)
 	// find corner to corner paths
-	for _, i := range corners {
+	/*for _, i := range corners {
 		fmt.Printf("searching from %d\n", i)
 		c := i
 	found:
@@ -241,7 +344,7 @@ func Task2(input Tiles, debug bool) int {
 				}
 			}
 		}
-	}
+	}*/
 
 	return -1
 }
