@@ -15,12 +15,17 @@ func TestShouldReadInput(t *testing.T) {
 	input := readTestInput()
 	expected := []int{3, 8, 9, 1, 2, 5, 4, 6, 7}
 
-	if len(expected) != len(input.Cups) {
-		t.Errorf("did not read input correctly, length does not match")
+	if input.Cups.Root == nil {
+		t.Errorf("did not read input correctly, no data?")
 	}
-	for i := range input.Cups {
-		if expected[i] != input.Cups[i] {
+	var i int
+	for e := input.Cups.Root; e != nil; e = e.Next {
+		if expected[i] != e.Val {
 			t.Errorf("did not read input correctly, did not match")
+		}
+		i++
+		if i >= input.Cups.Count {
+			break
 		}
 	}
 }
