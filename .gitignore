@@ -7,4 +7,5 @@ tags
 *.gif
 *.mp4
 zig-cache/
+zig-out/
 main
