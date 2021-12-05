@@ -72,7 +72,27 @@ pub fn task1(commands: []const Command) i32 {
 }
 
 pub fn task2(commands: []const Command) i32 {
-    return 0;
+    var horiz_pos: i32 = 0;
+    var depth: i32 = 0;
+    var aim: i32 = 0;
+
+    for (commands) |command| {
+        switch (command.cmd) {
+            .forward => {
+                horiz_pos += command.value;
+                depth += aim * command.value;
+            },
+            .down => {
+                aim += command.value;
+            },
+            .up => {
+                aim -= command.value;
+            },
+            else => {},
+        }
+    }
+
+    return horiz_pos * depth;
 }
 
 pub fn main() anyerror!void {
@@ -85,6 +105,6 @@ pub fn main() anyerror!void {
     const task_1_result = task1(input);
     std.log.info("Task 1 result: {}", .{task_1_result});
 
-    // const task_2_result = task2(input);
-    // std.log.info("Task 2 result: {}", .{task_2_result});
+    const task_2_result = task2(input);
+    std.log.info("Task 2 result: {}", .{task_2_result});
 }
