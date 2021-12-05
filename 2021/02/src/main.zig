@@ -100,7 +100,6 @@ pub fn main() anyerror!void {
     const allocator = &std.heap.FixedBufferAllocator.init(&buffer).allocator;
 
     const input = try readInputFile(allocator, "input.txt");
-    std.log.debug("input {any}", .{input});
 
     const task_1_result = task1(input);
     std.log.info("Task 1 result: {}", .{task_1_result});

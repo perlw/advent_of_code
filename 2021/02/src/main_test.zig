@@ -11,7 +11,7 @@ test "expect task 1 to yield correct result" {
         .{ .cmd = .down, .value = 8 },
         .{ .cmd = .forward, .value = 2 },
     };
-    const expected: u32 = 150;
+    const expected: i32 = 150;
 
     try std.testing.expect(app.task1(input[0..]) == expected);
 }
@@ -25,7 +25,7 @@ test "expect task 2 to yield correct result" {
         .{ .cmd = .down, .value = 8 },
         .{ .cmd = .forward, .value = 2 },
     };
-    const expected: u32 = 900;
+    const expected: i32 = 900;
 
     try std.testing.expect(app.task2(input[0..]) == expected);
 }
