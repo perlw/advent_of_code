@@ -77,6 +77,7 @@ inline fn checkBoard(board_w: u32, board_h: u32, board: []u32) bool {
         }
     }
 
+    x = 0;
     while (x < board_w) : (x += 1) {
         var foundNumber = false;
         y = 0;
@@ -125,6 +126,31 @@ pub fn task1(draw_numbers: []const u32, board_w: u32, board_h: u32, boards: [][2
     return result;
 }
 
+pub fn task2(draw_numbers: []const u32, board_w: u32, board_h: u32, boards: [][25]u32) u32 {
+    var result: u32 = 0;
+
+    for (draw_numbers) |number| {
+        std.log.debug("drew {}", .{number});
+
+        for (boards) |*b, i| {
+            var board = b[0..];
+            if (checkBoard(board_w, board_h, board)) {
+                continue;
+            }
+
+            boardTickNumber(number, board_w, board_h, board);
+            if (checkBoard(board_w, board_h, board)) {
+                result = getBoardValue(board) * number;
+                std.log.debug("result {}:{}->{}", .{ i, number, result });
+            }
+
+            std.log.debug("board {}:{any}", .{ i, board.* });
+        }
+    }
+
+    return result;
+}
+
 pub fn main() anyerror!void {
     var buffer: [65536]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
@@ -132,9 +158,17 @@ pub fn main() anyerror!void {
 
     const input = try readInputFile(allocator, "input.txt");
 
-    const task_1_result = task1(input.draw_numbers, 5, 5, input.boards);
+    var draw_numbers = try std.mem.dupe(allocator, u32, input.draw_numbers);
+    var boards = try std.mem.dupe(allocator, [25]u32, input.boards);
+    const task_1_result = task1(draw_numbers, 5, 5, boards);
     std.log.info("Task 1 result: {}", .{task_1_result});
+    allocator.free(draw_numbers);
+    allocator.free(boards);
 
-    // const task_2_result = task2(...);
-    // std.log.info("Task 2 result: {}", .{task_2_result});
+    draw_numbers = try std.mem.dupe(allocator, u32, input.draw_numbers);
+    boards = try std.mem.dupe(allocator, [25]u32, input.boards);
+    const task_2_result = task2(input.draw_numbers, 5, 5, input.boards);
+    std.log.info("Task 2 result: {}", .{task_2_result});
+    allocator.free(draw_numbers);
+    allocator.free(boards);
 }
