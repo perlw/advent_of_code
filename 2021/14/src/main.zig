@@ -42,39 +42,90 @@ pub fn readInput(allocator: *std.mem.Allocator, reader: anytype) !Input {
     return result;
 }
 
-pub fn task1(allocator: *std.mem.Allocator, input: Input) !u32 {
-    var current = try allocator.dupe(u8, input.template);
-    defer allocator.free(current);
-    var chain = std.ArrayList(u8).init(allocator);
-    defer chain.deinit();
+fn printPairs(pairs: std.StringHashMap(u64)) void {
+    var count: u32 = 0;
+    var it = pairs.iterator();
+    while (it.next()) |entry| {
+        std.log.debug("{s}=>{}", .{ entry.key_ptr.*, entry.value_ptr.* });
+        count += 1;
+    }
+    std.log.debug("num pairs {}", .{count});
+}
 
-    std.log.info("initial {s}", .{current});
-    var i: u32 = 0;
-    while (i < 10) : (i += 1) {
-        var j: u32 = 0;
-        while (j < current.len - 1) : (j += 1) {
-            const key = current[j .. j + 2];
-            const insert = input.rules.get(key).?;
-            if (chain.items.len == 0) {
-                try chain.append(key[0]);
-            }
-            try chain.append(insert);
-            try chain.append(key[1]);
+pub fn task(allocator: *std.mem.Allocator, steps: u32, input: Input) !u64 {
+    var pairs = std.StringHashMap(u64).init(allocator);
+    defer {
+        var it = pairs.iterator();
+        while (it.next()) |entry| {
+            allocator.free(entry.key_ptr.*);
         }
-        allocator.free(current);
-        current = try allocator.dupe(u8, chain.items);
-        chain.clearAndFree();
-
-        // std.log.debug("#{}: {s}", .{ i + 1, current });
+        pairs.deinit();
     }
 
-    std.log.info("final {s}", .{current});
-    var counts = [_]u32{0} ** ('Z' - 'A');
-    for (current) |c| {
-        counts[c - 'A'] += 1;
+    std.log.info("initial {s}", .{input.template});
+    var i: u32 = 0;
+    while (i < input.template.len - 1) : (i += 1) {
+        const key = input.template[i .. i + 2];
+        if (pairs.contains(key)) {
+            try pairs.put(key, pairs.get(key).? + 1);
+        } else {
+            try pairs.put(try allocator.dupe(u8, key), 1);
+        }
     }
-    var min: u32 = 999999;
-    var max: u32 = 0;
+    printPairs(pairs);
+
+    i = 0;
+    while (i < steps) : (i += 1) {
+        var new_pairs = std.StringHashMap(u64).init(allocator);
+
+        var it = pairs.iterator();
+        while (it.next()) |entry| {
+            const key = entry.key_ptr.*;
+            const value = entry.value_ptr.*;
+
+            const insert = input.rules.get(key).?;
+            const new_pair_1 = [2]u8{ key[0], insert };
+            const new_pair_2 = [2]u8{ insert, key[1] };
+            const new_value_1 = (new_pairs.get(new_pair_1[0..]) orelse 0) + value;
+            const new_value_2 = (new_pairs.get(new_pair_2[0..]) orelse 0) + value;
+
+            if (new_pairs.contains(new_pair_1[0..])) {
+                try new_pairs.put(new_pair_1[0..], new_value_1);
+            } else {
+                try new_pairs.put(try allocator.dupe(u8, new_pair_1[0..]), new_value_1);
+            }
+            if (new_pairs.contains(new_pair_2[0..])) {
+                try new_pairs.put(new_pair_2[0..], new_value_2);
+            } else {
+                try new_pairs.put(try allocator.dupe(u8, new_pair_2[0..]), new_value_2);
+            }
+            //std.log.debug("new pairs from {}x{s}=>{s},{s}", .{ value, key, new_pair_1, new_pair_2 });
+            //std.log.debug("new values from {},{}", .{ new_pairs.get(new_pair_1[0..]), new_pairs.get(new_pair_2[0..]) });
+        }
+        it = pairs.iterator();
+        while (it.next()) |entry| {
+            allocator.free(entry.key_ptr.*);
+        }
+        pairs.deinit();
+
+        pairs = new_pairs;
+        //printPairs(pairs);
+    }
+
+    printPairs(pairs);
+    var counts = [_]u64{0} ** ('Z' - 'A');
+    var it = pairs.iterator();
+    while (it.next()) |entry| {
+        const key = entry.key_ptr.*;
+        const value = entry.value_ptr.*;
+        counts[key[0] - 'A'] += value;
+        counts[key[1] - 'A'] += value;
+    }
+    for (counts) |*c| {
+        c.* = (c.* + 1) / 2;
+    }
+    var min: u64 = std.math.maxInt(u64);
+    var max: u64 = 0;
     for (counts) |c| {
         if (c > 0 and c < min) {
             min = c;
@@ -85,12 +136,6 @@ pub fn task1(allocator: *std.mem.Allocator, input: Input) !u32 {
     }
 
     return (max - min);
-}
-
-pub fn task2(allocator: *std.mem.Allocator, input: Input) !u32 {
-    var result: u32 = 0;
-
-    return result;
 }
 
 pub fn main() !void {
@@ -104,9 +149,9 @@ pub fn main() !void {
     var input = try readInput(allocator, file.reader());
     defer input.deinit();
 
-    const task_1_result = try task1(allocator, input);
+    const task_1_result = try task(allocator, 10, input);
     std.log.info("Task 1 result: {}", .{task_1_result});
 
-    const task_2_result = try task2(allocator, input);
+    const task_2_result = try task(allocator, 40, input);
     std.log.info("Task 2 result: {}", .{task_2_result});
 }
