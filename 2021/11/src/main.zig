@@ -1,6 +1,6 @@
 const std = @import("std");
 
-fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) ![]u32 {
+fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) ![]u32 {
     var result = std.ArrayList(u32).init(allocator);
 
     const file = try std.fs.cwd().openFile(filename, .{ .read = true });
@@ -127,7 +127,7 @@ pub fn task2(width: u32, height: u32, input: []u32) u32 {
 pub fn main() !void {
     var buffer: [2000000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const input = try readInputFile(allocator, "input.txt");
 

@@ -10,7 +10,7 @@ pub const Vent = struct {
     b: Point = .{},
 };
 
-fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror![]Vent {
+fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror![]Vent {
     var result = std.ArrayList(Vent).init(allocator);
 
     const file = try std.fs.cwd().openFile(filename, .{ .read = true });
@@ -21,15 +21,15 @@ fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror![
         const line = reader.readUntilDelimiterAlloc(allocator, '\n', 32) catch break;
         defer allocator.free(line);
 
-        var points = std.mem.tokenize(line, " -> ");
+        var points = std.mem.tokenize(u8, line, " -> ");
         var vent: Vent = .{};
         if (points.next()) |slice| {
-            var coords = std.mem.tokenize(slice, ",");
+            var coords = std.mem.tokenize(u8, slice, ",");
             vent.a.x = try std.fmt.parseUnsigned(u32, coords.next().?, 10);
             vent.a.y = try std.fmt.parseUnsigned(u32, coords.next().?, 10);
         }
         if (points.next()) |slice| {
-            var coords = std.mem.tokenize(slice, ",");
+            var coords = std.mem.tokenize(u8, slice, ",");
             vent.b.x = try std.fmt.parseUnsigned(u32, coords.next().?, 10);
             vent.b.y = try std.fmt.parseUnsigned(u32, coords.next().?, 10);
         }
@@ -87,7 +87,7 @@ fn putDownVents(diagonals: bool, max: Point, vents: []const Vent, grid: []u32) v
     }
 }
 
-pub fn task1(allocator: *std.mem.Allocator, max: Point, vents: []const Vent) !u32 {
+pub fn task1(allocator: std.mem.Allocator, max: Point, vents: []const Vent) !u32 {
     var result: u32 = 0;
 
     var grid = try allocator.alloc(u32, max.x * max.y);
@@ -106,7 +106,7 @@ pub fn task1(allocator: *std.mem.Allocator, max: Point, vents: []const Vent) !u3
     return result;
 }
 
-pub fn task2(allocator: *std.mem.Allocator, max: Point, vents: []Vent) !u32 {
+pub fn task2(allocator: std.mem.Allocator, max: Point, vents: []Vent) !u32 {
     var result: u32 = 0;
 
     var grid = try allocator.alloc(u32, max.x * max.y);
@@ -128,7 +128,7 @@ pub fn task2(allocator: *std.mem.Allocator, max: Point, vents: []Vent) !u32 {
 pub fn main() anyerror!void {
     var buffer: [4000000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const input = try readInputFile(allocator, "input.txt");
     var max: Point = .{ .x = 0, .y = 0 };

@@ -10,7 +10,7 @@ const Input = struct {
     folds: []Point,
 };
 
-pub fn readInput(allocator: *std.mem.Allocator, reader: anytype) !Input {
+pub fn readInput(allocator: std.mem.Allocator, reader: anytype) !Input {
     var points = std.ArrayList(Point).init(allocator);
     var folds = std.ArrayList(Point).init(allocator);
 
@@ -22,7 +22,7 @@ pub fn readInput(allocator: *std.mem.Allocator, reader: anytype) !Input {
             break;
         }
 
-        var it = std.mem.split(line, ",");
+        var it = std.mem.split(u8, line, ",");
         var x = try std.fmt.parseInt(u32, it.next().?, 10);
         var y = try std.fmt.parseInt(u32, it.next().?, 10);
         try points.append(Point{
@@ -35,7 +35,7 @@ pub fn readInput(allocator: *std.mem.Allocator, reader: anytype) !Input {
         const line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
         defer allocator.free(line);
 
-        var it = std.mem.split(line, "=");
+        var it = std.mem.split(u8, line, "=");
         var p1 = it.next().?;
         var dir = p1[p1.len - 1];
         var value = try std.fmt.parseInt(u32, it.next().?, 10);
@@ -161,7 +161,7 @@ pub fn foldPoints(fold: Point, points: []Point) void {
     }
 }
 
-pub fn task1(allocator: *std.mem.Allocator, input: Input) !u32 {
+pub fn task1(allocator: std.mem.Allocator, input: Input) !u32 {
     var result: u32 = 0;
 
     var points = try allocator.dupe(Point, input.points);
@@ -176,7 +176,7 @@ pub fn task1(allocator: *std.mem.Allocator, input: Input) !u32 {
     return result;
 }
 
-pub fn task2(allocator: *std.mem.Allocator, input: Input) !u32 {
+pub fn task2(allocator: std.mem.Allocator, input: Input) !u32 {
     var result: u32 = 0;
 
     var points = try allocator.dupe(Point, input.points);
@@ -195,7 +195,7 @@ pub fn task2(allocator: *std.mem.Allocator, input: Input) !u32 {
 pub fn main() !void {
     var buffer: [2000000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const file = try std.fs.cwd().openFile("input.txt", .{ .read = true });
     defer file.close();

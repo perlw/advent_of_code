@@ -12,7 +12,7 @@ pub const Command = struct {
     value: i32,
 };
 
-fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror![]Command {
+fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror![]Command {
     const file = try std.fs.cwd().openFile(filename, .{ .read = true });
     defer file.close();
 
@@ -97,7 +97,7 @@ pub fn task2(commands: []const Command) i32 {
 
 pub fn main() anyerror!void {
     var buffer: [65536]u8 = undefined;
-    const allocator = &std.heap.FixedBufferAllocator.init(&buffer).allocator;
+    const allocator = std.heap.FixedBufferAllocator.init(&buffer).allocator();
 
     const input = try readInputFile(allocator, "input.txt");
 

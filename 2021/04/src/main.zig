@@ -5,7 +5,7 @@ const Input = struct {
     boards: [][25]u32 = undefined,
 };
 
-fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror!Input {
+fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror!Input {
     var result = Input{};
     var draw_numbers = std.ArrayList(u32).init(allocator);
     var boards = std.ArrayList([25]u32).init(allocator);
@@ -18,7 +18,7 @@ fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror!I
     var line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch unreachable;
 
     {
-        var token = std.mem.split(line, ",");
+        var token = std.mem.split(u8, line, ",");
         while (token.next()) |slice| {
             const number = try std.fmt.parseUnsigned(u32, slice, 10);
             try draw_numbers.append(number);
@@ -36,7 +36,7 @@ fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror!I
         var board_index: u32 = 0;
         while (i < 5) : (i += 1) {
             line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch unreachable;
-            var token = std.mem.tokenize(line, " ");
+            var token = std.mem.tokenize(u8, line, " ");
             while (token.next()) |slice| {
                 board[board_index] = try std.fmt.parseUnsigned(u32, slice, 10);
                 board_index += 1;
@@ -52,7 +52,7 @@ fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror!I
 
 const Marker: u32 = 999;
 
-inline fn boardTickNumber(number: u32, board_w: u32, board_h: u32, board: []u32) void {
+inline fn boardTickNumber(number: u32, board: []u32) void {
     for (board) |value, i| {
         if (value == number) {
             board[i] = Marker;
@@ -113,7 +113,7 @@ pub fn task1(draw_numbers: []const u32, board_w: u32, board_h: u32, boards: [][2
         for (boards) |*b, i| {
             var board = b[0..];
 
-            boardTickNumber(number, board_w, board_h, board);
+            boardTickNumber(number, board);
             if (checkBoard(board_w, board_h, board)) {
                 result = getBoardValue(board) * number;
                 break :done;
@@ -138,7 +138,7 @@ pub fn task2(draw_numbers: []const u32, board_w: u32, board_h: u32, boards: [][2
                 continue;
             }
 
-            boardTickNumber(number, board_w, board_h, board);
+            boardTickNumber(number, board);
             if (checkBoard(board_w, board_h, board)) {
                 result = getBoardValue(board) * number;
                 std.log.debug("result {}:{}->{}", .{ i, number, result });
@@ -154,19 +154,19 @@ pub fn task2(draw_numbers: []const u32, board_w: u32, board_h: u32, boards: [][2
 pub fn main() anyerror!void {
     var buffer: [65536]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const input = try readInputFile(allocator, "input.txt");
 
-    var draw_numbers = try std.mem.dupe(allocator, u32, input.draw_numbers);
-    var boards = try std.mem.dupe(allocator, [25]u32, input.boards);
+    var draw_numbers = try allocator.dupe(u32, input.draw_numbers);
+    var boards = try allocator.dupe([25]u32, input.boards);
     const task_1_result = task1(draw_numbers, 5, 5, boards);
     std.log.info("Task 1 result: {}", .{task_1_result});
     allocator.free(draw_numbers);
     allocator.free(boards);
 
-    draw_numbers = try std.mem.dupe(allocator, u32, input.draw_numbers);
-    boards = try std.mem.dupe(allocator, [25]u32, input.boards);
+    draw_numbers = try allocator.dupe(u32, input.draw_numbers);
+    boards = try allocator.dupe([25]u32, input.boards);
     const task_2_result = task2(input.draw_numbers, 5, 5, input.boards);
     std.log.info("Task 2 result: {}", .{task_2_result});
     allocator.free(draw_numbers);

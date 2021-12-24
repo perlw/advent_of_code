@@ -1,6 +1,6 @@
 const std = @import("std");
 
-fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror![]u32 {
+fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror![]u32 {
     var result = std.ArrayList(u32).init(allocator);
 
     const file = try std.fs.cwd().openFile(filename, .{ .read = true });
@@ -56,7 +56,7 @@ pub fn task1(comptime T: type, diagnostic: []const u32) u32 {
     return gamma_rate * epsilon_rate;
 }
 
-fn pickDiagnostics(comptime T: type, allocator: *std.mem.Allocator, bit: u5, invert: bool, diagnostic: []const u32) []const u32 {
+fn pickDiagnostics(comptime T: type, allocator: std.mem.Allocator, bit: u5, invert: bool, diagnostic: []const u32) []const u32 {
     var result = std.ArrayList(u32).init(allocator);
 
     var on: u32 = 0;
@@ -86,7 +86,7 @@ fn pickDiagnostics(comptime T: type, allocator: *std.mem.Allocator, bit: u5, inv
 
 pub fn task2(comptime T: type, diagnostic: []const u32) u32 {
     var buffer: [65536]u8 = undefined;
-    var allocator = &std.heap.FixedBufferAllocator.init(&buffer).allocator;
+    const allocator = std.heap.FixedBufferAllocator.init(&buffer).allocator();
 
     var oxygen_rating: u32 = 0;
     var co2_rating: u32 = 0;
@@ -118,7 +118,7 @@ pub fn task2(comptime T: type, diagnostic: []const u32) u32 {
 pub fn main() anyerror!void {
     var buffer: [65536]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const input = try readInputFile(allocator, "input.txt");
 

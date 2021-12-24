@@ -8,7 +8,7 @@ pub const Display = struct {
     digits: []const []const u8,
 };
 
-fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) ![]Display {
+fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) ![]Display {
     var result = std.ArrayList(Display).init(allocator);
 
     const file = try std.fs.cwd().openFile(filename, .{ .read = true });
@@ -22,10 +22,10 @@ fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) ![]Display
 
         var display: Display = undefined;
 
-        var parts = std.mem.split(line, " | ");
+        var parts = std.mem.split(u8, line, " | ");
 
         var definitions = std.ArrayList([]u8).init(allocator);
-        var it = std.mem.split(parts.next().?, " ");
+        var it = std.mem.split(u8, parts.next().?, " ");
         while (it.next()) |slice| {
             var def = try allocator.dupe(u8, slice);
             try definitions.append(def);
@@ -33,7 +33,7 @@ fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) ![]Display
         display.definitions = definitions.items;
 
         var digits = std.ArrayList([]u8).init(allocator);
-        it = std.mem.split(parts.next().?, " ");
+        it = std.mem.split(u8, parts.next().?, " ");
         while (it.next()) |slice| {
             var dig = try allocator.dupe(u8, slice);
             try digits.append(dig);
@@ -91,7 +91,7 @@ fn findMatch(segment_count: u32, base_on: usize, match_count: u32, partial: []us
     unreachable;
 }
 
-pub fn task2(allocator: *std.mem.Allocator, input: []const Display) ![]u32 {
+pub fn task2(allocator: std.mem.Allocator, input: []const Display) ![]u32 {
     var result = std.ArrayList(u32).init(allocator);
 
     for (input) |display| {
@@ -168,7 +168,7 @@ pub fn task2(allocator: *std.mem.Allocator, input: []const Display) ![]u32 {
 pub fn main() !void {
     var buffer: [2000000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const input = try readInputFile(allocator, "input.txt");
 

@@ -6,9 +6,9 @@ const Cave = struct {
 
 const CaveSystem = struct {
     system: std.StringHashMap(Cave),
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
-    pub fn init(allocator: *std.mem.Allocator) !CaveSystem {
+    pub fn init(allocator: std.mem.Allocator) !CaveSystem {
         return CaveSystem{
             .system = std.StringHashMap(Cave).init(allocator),
             .allocator = allocator,
@@ -30,14 +30,14 @@ const CaveSystem = struct {
     }
 };
 
-pub fn readInput(allocator: *std.mem.Allocator, reader: anytype) !CaveSystem {
+pub fn readInput(allocator: std.mem.Allocator, reader: anytype) !CaveSystem {
     var result = try CaveSystem.init(allocator);
 
     while (true) {
         const line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
         defer allocator.free(line);
 
-        var it = std.mem.split(line, "-");
+        var it = std.mem.split(u8, line, "-");
 
         var key = try allocator.dupe(u8, it.next().?);
         var free_the_key = false;
@@ -121,14 +121,14 @@ fn walkCaves(current_cave: []const u8, cave_system: *CaveSystem, visited_small_c
     return result;
 }
 
-pub fn task1(allocator: *std.mem.Allocator, input: *CaveSystem) !u32 {
+pub fn task1(allocator: std.mem.Allocator, input: *CaveSystem) !u32 {
     var visited = std.StringHashMap(u32).init(allocator);
     defer visited.deinit();
 
     return walkCaves("start", input, &visited, false, false);
 }
 
-pub fn task2(allocator: *std.mem.Allocator, input: *CaveSystem) !u32 {
+pub fn task2(allocator: std.mem.Allocator, input: *CaveSystem) !u32 {
     var visited = std.StringHashMap(u32).init(allocator);
     defer visited.deinit();
 

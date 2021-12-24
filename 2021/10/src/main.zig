@@ -1,6 +1,6 @@
 const std = @import("std");
 
-fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) ![][]u8 {
+fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) ![][]u8 {
     var result = std.ArrayList([]u8).init(allocator);
 
     const file = try std.fs.cwd().openFile(filename, .{ .read = true });
@@ -16,11 +16,11 @@ fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) ![][]u8 {
     return result.items;
 }
 
-pub fn isLineCorrupt(allocator: *std.mem.Allocator, line: []const u8) !bool {
+pub fn isLineCorrupt(allocator: std.mem.Allocator, line: []const u8) !bool {
     return (try corruptLineValue(allocator, line)) != 0;
 }
 
-fn corruptLineValue(allocator: *std.mem.Allocator, line: []const u8) !u32 {
+fn corruptLineValue(allocator: std.mem.Allocator, line: []const u8) !u32 {
     var open_chars = std.ArrayList(u8).init(allocator);
     defer open_chars.deinit();
 
@@ -63,7 +63,7 @@ fn corruptLineValue(allocator: *std.mem.Allocator, line: []const u8) !u32 {
     return 0;
 }
 
-fn getCompletedLineScore(allocator: *std.mem.Allocator, line: []const u8) !u64 {
+fn getCompletedLineScore(allocator: std.mem.Allocator, line: []const u8) !u64 {
     var result: u64 = 0;
 
     var open_chars = std.ArrayList(u8).init(allocator);
@@ -93,7 +93,7 @@ fn getCompletedLineScore(allocator: *std.mem.Allocator, line: []const u8) !u64 {
     return result;
 }
 
-pub fn task1(allocator: *std.mem.Allocator, input: [][]const u8) !u32 {
+pub fn task1(allocator: std.mem.Allocator, input: [][]const u8) !u32 {
     var result: u32 = 0;
 
     for (input) |line| {
@@ -107,7 +107,7 @@ pub fn task1(allocator: *std.mem.Allocator, input: [][]const u8) !u32 {
 
 const asc_u64 = std.sort.asc(u64);
 
-pub fn task2(allocator: *std.mem.Allocator, input: [][]const u8) !u64 {
+pub fn task2(allocator: std.mem.Allocator, input: [][]const u8) !u64 {
     var scores = std.ArrayList(u64).init(allocator);
     defer scores.deinit();
 
@@ -128,7 +128,7 @@ pub fn task2(allocator: *std.mem.Allocator, input: [][]const u8) !u64 {
 pub fn main() !void {
     var buffer: [2000000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const input = try readInputFile(allocator, "input.txt");
 

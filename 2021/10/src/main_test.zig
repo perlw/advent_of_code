@@ -14,7 +14,7 @@ test "expect lines to be corrupt" {
 
     var buffer: [2000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
     for (input) |line| {
         try std.testing.expect(try app.isLineCorrupt(allocator, line));
     }
@@ -38,7 +38,7 @@ test "expect lines to be okay" {
 
     var buffer: [2000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
     for (input) |line| {
         try std.testing.expect(!(try app.isLineCorrupt(allocator, line)));
     }
@@ -63,7 +63,7 @@ test "expect task 1 to sum to 26397" {
 
     var buffer: [2000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
     try std.testing.expect((try app.task1(allocator, &input)) == expected);
 }
 
@@ -86,6 +86,6 @@ test "expect task 2 to result in 288957" {
 
     var buffer: [2000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
     try std.testing.expect((try app.task2(allocator, &input)) == expected);
 }

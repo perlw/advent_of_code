@@ -1,12 +1,12 @@
 const std = @import("std");
 
 const Input = struct {
-    allocator: *std.mem.Allocator,
+    allocator: std.mem.Allocator,
 
     template: []const u8,
     rules: std.StringHashMap(u8),
 
-    pub fn init(allocator: *std.mem.Allocator) !Input {
+    pub fn init(allocator: std.mem.Allocator) !Input {
         return Input{
             .allocator = allocator,
             .template = undefined,
@@ -24,7 +24,7 @@ const Input = struct {
     }
 };
 
-pub fn readInput(allocator: *std.mem.Allocator, reader: anytype) !Input {
+pub fn readInput(allocator: std.mem.Allocator, reader: anytype) !Input {
     var result = try Input.init(allocator);
 
     result.template = try reader.readUntilDelimiterAlloc(allocator, '\n', 512);
@@ -34,7 +34,7 @@ pub fn readInput(allocator: *std.mem.Allocator, reader: anytype) !Input {
         const line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
         defer allocator.free(line);
 
-        var it = std.mem.split(line, " -> ");
+        var it = std.mem.split(u8, line, " -> ");
         var key = try allocator.dupe(u8, it.next().?);
         try result.rules.put(key, (it.next().?)[0]);
     }
@@ -52,7 +52,7 @@ fn printPairs(pairs: std.StringHashMap(u64)) void {
     std.log.debug("num pairs {}", .{count});
 }
 
-pub fn task(allocator: *std.mem.Allocator, steps: u32, input: Input) !u64 {
+pub fn task(allocator: std.mem.Allocator, steps: u32, input: Input) !u64 {
     var pairs = std.StringHashMap(u64).init(allocator);
     defer {
         var it = pairs.iterator();
@@ -141,7 +141,7 @@ pub fn task(allocator: *std.mem.Allocator, steps: u32, input: Input) !u64 {
 pub fn main() !void {
     var buffer: [2000000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const file = try std.fs.cwd().openFile("input.txt", .{ .read = true });
     defer file.close();

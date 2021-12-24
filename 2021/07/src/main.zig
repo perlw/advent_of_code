@@ -1,6 +1,6 @@
 const std = @import("std");
 
-fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror![]u32 {
+fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror![]u32 {
     var result = std.ArrayList(u32).init(allocator);
 
     const file = try std.fs.cwd().openFile(filename, .{ .read = true });
@@ -10,7 +10,7 @@ fn readInputFile(allocator: *std.mem.Allocator, filename: []const u8) anyerror![
     const line = reader.readUntilDelimiterAlloc(allocator, '\n', 4096) catch unreachable;
     defer allocator.free(line);
 
-    var it = std.mem.split(line, ",");
+    var it = std.mem.split(u8, line, ",");
     while (it.next()) |slice| {
         const value = try std.fmt.parseUnsigned(u32, slice, 10);
         try result.append(value);
@@ -81,7 +81,7 @@ pub fn task2(crabs: []u32) u64 {
 pub fn main() anyerror!void {
     var buffer: [2000000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
-    var allocator = &fixed_buffer.allocator;
+    const allocator = fixed_buffer.allocator();
 
     const input = try readInputFile(allocator, "input.txt");
 
