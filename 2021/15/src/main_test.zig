@@ -74,6 +74,26 @@ test "expect neighbors to index 4 to have four valid indices" {
     try std.testing.expect(std.mem.eql(u32, &input.neighbors(4), &expected));
 }
 
+test "expect expand to loop values correctly" {
+    std.testing.log_level = .debug;
+
+    const raw_input: []const u8 =
+        \\123
+        \\456
+        \\789
+        \\
+    ;
+
+    var stream = std.io.fixedBufferStream(raw_input);
+    var input = try app.readInput(std.testing.allocator, stream.reader());
+    defer input.deinit();
+    try input.expand(3);
+
+    const expected: u32 = 4;
+
+    try std.testing.expect(input.risk_levels[(input.width * input.height) - 1] == expected);
+}
+
 test "expect task 1 to result in 40" {
     std.testing.log_level = .debug;
 
@@ -97,5 +117,31 @@ test "expect task 1 to result in 40" {
 
     const expected: u32 = 40;
 
-    try std.testing.expect((try app.task1(input)) == expected);
+    try std.testing.expect((try app.task1(&input)) == expected);
+}
+
+test "expect task 2 to result in 315" {
+    std.testing.log_level = .debug;
+
+    const raw_input: []const u8 =
+        \\1163751742
+        \\1381373672
+        \\2136511328
+        \\3694931569
+        \\7463417111
+        \\1319128137
+        \\1359912421
+        \\3125421639
+        \\1293138521
+        \\2311944581
+        \\
+    ;
+
+    var stream = std.io.fixedBufferStream(raw_input);
+    var input = try app.readInput(std.testing.allocator, stream.reader());
+    defer input.deinit();
+
+    const expected: u32 = 315;
+
+    try std.testing.expect((try app.task2(&input)) == expected);
 }
