@@ -12,10 +12,11 @@ fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror![]
     while (true) {
         var byte = reader.readByte() catch break;
         buffer[index] = byte;
-        if (byte == '\n') {
-            const value = try std.fmt.parseUnsigned(u32, buffer[0..index], 10);
-            try result.append(value);
+        if (byte == '\r' or byte == '\n') {
+            var until = index;
             index = 0;
+            const value = std.fmt.parseUnsigned(u32, buffer[0..until], 10) catch continue;
+            try result.append(value);
         } else {
             index += 1;
         }

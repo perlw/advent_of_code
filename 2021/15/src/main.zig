@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub const invalid_index = std.math.inf_u32;
 const Cell = struct {
@@ -6,7 +7,7 @@ const Cell = struct {
     index: u32,
 };
 
-fn pop_next(front: *std.ArrayList(Cell)) Cell {
+fn popNext(front: *std.ArrayList(Cell)) Cell {
     var min_distance: u32 = std.math.inf_u32;
     var pop: usize = std.math.inf_u32;
     for (front.items) |cell, array_index| {
@@ -65,7 +66,7 @@ pub const Map = struct {
 
         var num_visited: u32 = 0;
         iterate: while (front.items.len > 0) {
-            var cell = pop_next(&front);
+            var cell = popNext(&front);
             if (visited[cell.index]) {
                 continue :iterate;
             }
@@ -169,7 +170,15 @@ pub fn readInput(allocator: std.mem.Allocator, reader: anytype) !Map {
     var width: u32 = 0;
     var height: u32 = 0;
     while (true) {
-        const line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        var line: []u8 = undefined;
+        if (builtin.os.tag == .windows and !builtin.is_test) {
+            // NOTE: Read another byte on windows due to two-byte eol.
+            // NOTE: Check if in testing since tests only add single-byte eol in multiline strings.
+            line = reader.readUntilDelimiterAlloc(allocator, '\r', 512) catch break;
+            _ = try reader.readByte();
+        } else {
+            line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        }
         defer allocator.free(line);
 
         if (line.len > width) {

@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) ![][]u8 {
     var result = std.ArrayList([]u8).init(allocator);
@@ -9,7 +10,14 @@ fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) ![][]u8 {
     const reader = file.reader();
 
     while (true) {
-        const line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        var line: []u8 = undefined;
+        if (builtin.os.tag == .windows) {
+            // NOTE: Read another byte on windows due to two-byte eol.
+            line = reader.readUntilDelimiterAlloc(allocator, '\r', 512) catch break;
+            _ = try reader.readByte();
+        } else {
+            line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        }
         try result.append(line);
     }
 

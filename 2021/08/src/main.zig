@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 // NOTE: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9
 const segment_counts = [_]u32{ 6, 2, 5, 5, 4, 5, 6, 3, 7, 6 };
@@ -17,7 +18,14 @@ fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) ![]Display 
     const reader = file.reader();
 
     while (true) {
-        const line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        var line: []u8 = undefined;
+        if (builtin.os.tag == .windows) {
+            // NOTE: Read another byte on windows due to two-byte eol.
+            line = reader.readUntilDelimiterAlloc(allocator, '\r', 512) catch break;
+            _ = try reader.readByte();
+        } else {
+            line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        }
         defer allocator.free(line);
 
         var display: Display = undefined;

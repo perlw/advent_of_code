@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub const Point = struct {
     x: u32 = 0,
@@ -18,7 +19,14 @@ fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror![]
 
     const reader = file.reader();
     while (true) {
-        const line = reader.readUntilDelimiterAlloc(allocator, '\n', 32) catch break;
+        var line: []u8 = undefined;
+        if (builtin.os.tag == .windows) {
+            // NOTE: Read another byte on windows due to two-byte eol.
+            line = reader.readUntilDelimiterAlloc(allocator, '\r', 32) catch break;
+            _ = try reader.readByte();
+        } else {
+            line = reader.readUntilDelimiterAlloc(allocator, '\n', 32) catch break;
+        }
         defer allocator.free(line);
 
         var points = std.mem.tokenize(u8, line, " -> ");

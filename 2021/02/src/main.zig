@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 pub const CommandType = enum {
     unknown,
@@ -37,6 +38,10 @@ fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror![]
                 try result.append(.{ .cmd = cmd, .value = value });
 
                 _ = reader.readByte() catch break :die;
+                if (builtin.os.tag == .windows) {
+                    // NOTE: Read another byte on windows due to two-byte line-endings.
+                    _ = reader.readByte() catch break :die;
+                }
                 index = 0;
             },
             else => {

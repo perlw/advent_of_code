@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const Point = struct {
     x: u32,
@@ -15,7 +16,15 @@ pub fn readInput(allocator: std.mem.Allocator, reader: anytype) !Input {
     var folds = std.ArrayList(Point).init(allocator);
 
     while (true) {
-        const line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        var line: []u8 = undefined;
+        if (builtin.os.tag == .windows and !builtin.is_test) {
+            // NOTE: Read another byte on windows due to two-byte eol.
+            // NOTE: Check if in testing since tests only add single-byte eol in multiline strings.
+            line = reader.readUntilDelimiterAlloc(allocator, '\r', 512) catch break;
+            _ = try reader.readByte();
+        } else {
+            line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        }
         defer allocator.free(line);
 
         if (line.len == 0) {
@@ -32,7 +41,15 @@ pub fn readInput(allocator: std.mem.Allocator, reader: anytype) !Input {
     }
 
     while (true) {
-        const line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        var line: []u8 = undefined;
+        if (builtin.os.tag == .windows and !builtin.is_test) {
+            // NOTE: Read another byte on windows due to two-byte eol.
+            // NOTE: Check if in testing since tests only add single-byte eol in multiline strings.
+            line = reader.readUntilDelimiterAlloc(allocator, '\r', 512) catch break;
+            _ = try reader.readByte();
+        } else {
+            line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch break;
+        }
         defer allocator.free(line);
 
         var it = std.mem.split(u8, line, "=");

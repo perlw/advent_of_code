@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const Input = struct {
     draw_numbers: []u32 = undefined,
@@ -15,7 +16,14 @@ fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror!In
 
     const reader = file.reader();
 
-    var line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch unreachable;
+    var line: []u8 = undefined;
+    if (builtin.os.tag == .windows) {
+        // NOTE: Read another byte on windows due to two-byte eol.
+        line = reader.readUntilDelimiterAlloc(allocator, '\r', 512) catch unreachable;
+        _ = try reader.readByte();
+    } else {
+        line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch unreachable;
+    }
 
     {
         var token = std.mem.split(u8, line, ",");
@@ -30,12 +38,22 @@ fn readInputFile(allocator: std.mem.Allocator, filename: []const u8) anyerror!In
     while (true) {
         // NOTE: Skip line.
         _ = reader.readByte() catch break;
+        if (builtin.os.tag == .windows) {
+            // NOTE: Read another byte on windows due to two-byte eol.
+            _ = reader.readByte() catch break;
+        }
 
         var i: u32 = 0;
         var board = std.mem.zeroes([25]u32);
         var board_index: u32 = 0;
         while (i < 5) : (i += 1) {
-            line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch unreachable;
+            if (builtin.os.tag == .windows) {
+                // NOTE: Read another byte on windows due to two-byte eol.
+                line = reader.readUntilDelimiterAlloc(allocator, '\r', 512) catch unreachable;
+                _ = try reader.readByte();
+            } else {
+                line = reader.readUntilDelimiterAlloc(allocator, '\n', 512) catch unreachable;
+            }
             var token = std.mem.tokenize(u8, line, " ");
             while (token.next()) |slice| {
                 board[board_index] = try std.fmt.parseUnsigned(u32, slice, 10);
