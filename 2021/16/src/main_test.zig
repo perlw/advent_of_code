@@ -57,6 +57,7 @@ test "expect hexToBinaryArrayList to produce expected result" {
         for (result.items) |b, i| {
             if (b != (t[1] >> 15 - @intCast(u4, i)) & 0x1) {
                 verified = false;
+                ok = false;
                 break;
             }
         }
@@ -66,18 +67,101 @@ test "expect hexToBinaryArrayList to produce expected result" {
     try std.testing.expect(ok);
 }
 
-test "expect task 1 ..." {
+test "expect readLiteralValue to produce expected result" {
+    var input = std.ArrayList(u1).init(std.testing.allocator);
+    defer input.deinit();
+    try input.appendSlice(&[_]u1{
+        1,
+        1,
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        0,
+        0,
+        0,
+        1,
+        0,
+        1,
+        0,
+        0,
+        0,
+    });
+
+    const expected: u32 = 2021;
+
+    var version: u32 = 0;
+    var result: u16 = 0;
+    _ = try app.readLiteralValue(&input, &version, &result);
+    try std.testing.expect(result == expected);
+}
+
+test "expect readOperatorPacket to produce expected result" {
+    const tests = .{
+        .{ "38006F45291200", 0 },
+        .{ "EE00D40C823060", 0 },
+    };
+
+    std.debug.print("\n", .{});
+    var ok = true;
+    inline for (tests) |t| {
+        var input = try app.hexToBinaryArrayList(std.testing.allocator, t[0]);
+        defer input.deinit();
+
+        var version: u32 = 0;
+        var result: u16 = 0;
+        std.debug.print("Expect: {s}->{}..", .{ t[0], t[1] });
+        _ = try app.readOperatorPacket(&input, &version, &result);
+        checkPrint(true);
+    }
+    try std.testing.expect(ok);
+}
+
+test "expect runPacketDecode to produce expected result" {
+    const tests = .{
+        .{ "8A004A801A8002F478", 16 },
+        .{ "620080001611562C8802118E34", 12 },
+        .{ "C0015000016115A2E0802F182340", 23 },
+        .{ "A0016C880162017C3686B18A3D4780", 31 },
+    };
+
+    std.debug.print("\n", .{});
+    var ok = true;
+    inline for (tests) |t| {
+        var input = try app.hexToBinaryArrayList(std.testing.allocator, t[0]);
+        defer input.deinit();
+
+        std.debug.print("Expect: {s} -> v{}", .{ t[0], t[1] });
+        var version: u32 = 0;
+        var result: u16 = 0;
+        try app.runPacketDecode(&input, &version, &result);
+        checkPrint(version == t[1]);
+    }
+    try std.testing.expect(ok);
+}
+
+test "expect task 1 to result in 31" {
     std.testing.log_level = .debug;
 
-    //const raw_input: []const u8 =
-    //\\
-    //;
+    const raw_input: []const u8 =
+        \\A0016C880162017C3686B18A3D4780
+        \\
+    ;
 
-    // var stream = std.io.fixedBufferStream(raw_input);
-    // var input = try app.readInput(std.testing.allocator, stream.reader());
-    // defer input.deinit();
+    var stream = std.io.fixedBufferStream(raw_input);
+    var input = try app.readInput(std.testing.allocator, stream.reader());
+    defer input.deinit();
 
-    // const expected: u32 = 40;
+    const expected: u32 = 31;
 
-    //try std.testing.expect((try app.task1(&input)) == expected);
+    try std.testing.expect((try app.task1(&input)) == expected);
 }
