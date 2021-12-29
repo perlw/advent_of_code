@@ -7,3 +7,9 @@ my road to learning the language, the good, the bad, and the ugly, and should no
 in any way (except maybe on what _not_ to do).
 
 Cheers.
+
+===
+
+Depends on (at least) zig v0.9.0 (at the time of this commit) due to breaking changes related to
+memory management in the std lib in 0.8.0.
+See: https://ziglang.org/download/0.9.0/release-notes.html#Allocgate
