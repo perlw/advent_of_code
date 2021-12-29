@@ -40,28 +40,35 @@ fn printRawBits(value: u16) void {
     std.debug.print("\n", .{});
 }
 
-fn peekPacketType(packets: *std.ArrayList(u1)) u3 {
+fn peekPacketType(packets: *std.ArrayList(u1)) PacketType {
     const peek_packet_type: []u1 = packets.items[3..6];
-    return (@as(u3, peek_packet_type[0]) << 2) + (@as(u3, peek_packet_type[1]) << 1) + @as(u3, peek_packet_type[2]);
+    return @intToEnum(PacketType, (@as(u3, peek_packet_type[0]) << 2) + (@as(u3, peek_packet_type[1]) << 1) + @as(u3, peek_packet_type[2]));
 }
 
-fn readHeader(packets: *std.ArrayList(u1), output_version: *u32, output_packet_type: *u3) u15 {
+fn readHeader(packets: *std.ArrayList(u1), output_version: *u32, output_packet_type: *PacketType) u15 {
     output_version.* = (@as(u3, packets.orderedRemove(0)) << 2) + (@as(u3, packets.orderedRemove(0)) << 1) + @as(u3, packets.orderedRemove(0));
-    output_packet_type.* = (@as(u3, packets.orderedRemove(0)) << 2) + (@as(u3, packets.orderedRemove(0)) << 1) + @as(u3, packets.orderedRemove(0));
+    output_packet_type.* = @intToEnum(PacketType, (@as(u3, packets.orderedRemove(0)) << 2) + (@as(u3, packets.orderedRemove(0)) << 1) + @as(u3, packets.orderedRemove(0)));
     return 6;
 }
 
-pub fn readLiteralValue(packets: *std.ArrayList(u1), output_version: *u32, output_value: *u16) !u15 {
-    if (packets.items.len < 7) {
-        return 0;
-    }
+const PacketType = enum(u3) {
+    Sum = 0,
+    Product = 1,
+    Minimum = 2,
+    Maximum = 3,
+    Literal = 4,
+    GreaterThan = 5,
+    LessThan = 6,
+    EqualTo = 7,
+};
 
+pub fn readLiteralValue(packets: *std.ArrayList(u1), output_version: *u32, output_value: *u64) !u15 {
     var version: u32 = 0;
-    var packet_type: u3 = 0;
+    var packet_type: PacketType = undefined;
     var bits_read: u15 = readHeader(packets, &version, &packet_type);
     output_version.* += version;
 
-    if (packet_type != 4) {
+    if (packet_type != .Literal) {
         return DecodingError.UnexpectedPacketType;
     }
 
@@ -83,20 +90,18 @@ pub fn readLiteralValue(packets: *std.ArrayList(u1), output_version: *u32, outpu
     return bits_read;
 }
 
-pub fn readOperatorPacket(packets: *std.ArrayList(u1), output_version: *u32, output_value: *u16) !u15 {
-    if (packets.items.len < 7) {
-        return 0;
-    }
-
-    _ = output_value;
+pub fn readOperatorPacket(allocator: std.mem.Allocator, packets: *std.ArrayList(u1), output_version: *u32, output_value: *u64) !u15 {
     var version: u32 = 0;
-    var packet_type: u3 = 0;
+    var packet_type: PacketType = undefined;
     var bits_read: u15 = readHeader(packets, &version, &packet_type);
     output_version.* += version;
 
-    if (packet_type == 4) {
+    if (packet_type == .Literal) {
         return DecodingError.UnexpectedPacketType;
     }
+
+    var values = std.ArrayList(u64).init(allocator);
+    defer values.deinit();
 
     const length_type = @as(u1, packets.orderedRemove(0));
     if (length_type == 0) {
@@ -108,16 +113,17 @@ pub fn readOperatorPacket(packets: *std.ArrayList(u1), output_version: *u32, out
         bits_read += 15;
 
         var read_bits: u15 = 0;
-        while (read_bits < length and packets.items.len > 7) {
-            var literal_version: u32 = 0;
-            var val: u16 = 0;
+        while (read_bits < length and length - read_bits > 6 and packets.items.len > 6) {
+            var packet_version: u32 = 0;
+            var packet_value: u64 = 0;
             const peeked_packet_type = peekPacketType(packets);
-            if (peeked_packet_type == 4) {
-                read_bits += readLiteralValue(packets, &literal_version, &val) catch unreachable;
+            if (peeked_packet_type == .Literal) {
+                read_bits += readLiteralValue(packets, &packet_version, &packet_value) catch unreachable;
             } else {
-                read_bits += readOperatorPacket(packets, &literal_version, &val) catch unreachable;
+                read_bits += readOperatorPacket(allocator, packets, &packet_version, &packet_value) catch unreachable;
             }
-            output_version.* += literal_version;
+            output_version.* += packet_version;
+            try values.append(packet_value);
         }
         bits_read += read_bits;
     } else {
@@ -130,30 +136,80 @@ pub fn readOperatorPacket(packets: *std.ArrayList(u1), output_version: *u32, out
 
         var read_packets: u11 = 0;
         while (read_packets < num_packets) : (read_packets += 1) {
-            var literal_version: u32 = 0;
-            var val: u16 = 0;
+            var packet_version: u32 = 0;
+            var packet_value: u64 = 0;
             const peeked_packet_type = peekPacketType(packets);
-            if (peeked_packet_type == 4) {
-                bits_read += readLiteralValue(packets, &literal_version, &val) catch unreachable;
+            if (peeked_packet_type == .Literal) {
+                bits_read += readLiteralValue(packets, &packet_version, &packet_value) catch unreachable;
             } else {
-                bits_read += readOperatorPacket(packets, &literal_version, &val) catch unreachable;
+                bits_read += readOperatorPacket(allocator, packets, &packet_version, &packet_value) catch unreachable;
             }
-            output_version.* += literal_version;
+            output_version.* += packet_version;
+            try values.append(packet_value);
         }
+    }
+
+    switch (packet_type) {
+        .Sum => {
+            for (values.items) |item| {
+                output_value.* += item;
+            }
+        },
+        .Product => {
+            var product: u64 = 1;
+            for (values.items) |item| {
+                product *= item;
+            }
+            output_value.* = product;
+        },
+        .Minimum => {
+            var min: u64 = std.math.inf_u64;
+            for (values.items) |item| {
+                if (item < min) {
+                    min = item;
+                }
+            }
+            output_value.* = min;
+        },
+        .Maximum => {
+            var max: u64 = 0;
+            for (values.items) |item| {
+                if (item > max) {
+                    max = item;
+                }
+            }
+            output_value.* = max;
+        },
+        .Literal => unreachable,
+        .GreaterThan => {
+            if (values.items.len != 2) unreachable;
+
+            output_value.* = @boolToInt(values.items[0] > values.items[1]);
+        },
+        .LessThan => {
+            if (values.items.len != 2) unreachable;
+
+            output_value.* = @boolToInt(values.items[0] < values.items[1]);
+        },
+        .EqualTo => {
+            if (values.items.len != 2) unreachable;
+
+            output_value.* = @boolToInt(values.items[0] == values.items[1]);
+        },
     }
 
     return bits_read;
 }
 
-pub fn runPacketDecode(packets: *std.ArrayList(u1), version: *u32, output_value: *u16) !void {
+pub fn runPacketDecode(allocator: std.mem.Allocator, packets: *std.ArrayList(u1), version: *u32, output_value: *u64) !void {
     version.* = 0;
     output_value.* = 0;
 
     const packet_type = peekPacketType(packets);
-    if (packet_type == 4) {
+    if (packet_type == .Literal) {
         _ = try readLiteralValue(packets, version, output_value);
     } else {
-        _ = try readOperatorPacket(packets, version, output_value);
+        _ = try readOperatorPacket(allocator, packets, version, output_value);
     }
 }
 
@@ -172,18 +228,6 @@ pub fn readInput(allocator: std.mem.Allocator, reader: anytype) !std.ArrayList(u
     return hexToBinaryArrayList(allocator, line);
 }
 
-pub fn task1(input: *std.ArrayList(u1)) !u32 {
-    var version: u32 = 0;
-    var result: u16 = 0;
-    try runPacketDecode(input, &version, &result);
-    return version;
-}
-
-pub fn task2(input: *std.ArrayList(u1)) !u32 {
-    _ = input;
-    return 0;
-}
-
 pub fn main() !void {
     var buffer: [8000000]u8 = undefined;
     var fixed_buffer = std.heap.FixedBufferAllocator.init(&buffer);
@@ -195,9 +239,9 @@ pub fn main() !void {
     var input = try readInput(allocator, file.reader());
     defer input.deinit();
 
-    const task_1_result = try task1(&input);
-    std.log.info("Task 1 result: {}", .{task_1_result});
-
-    // const task_2_result = try task2(&input);
-    // std.log.info("Task 2 result: {}", .{task_2_result});
+    var version: u32 = 0;
+    var result: u64 = 0;
+    try runPacketDecode(allocator, &input, &version, &result);
+    std.log.info("Task 1 result: {}", .{version});
+    std.log.info("Task 2 result: {}", .{result});
 }
