@@ -26,7 +26,7 @@ echo %bold_white%Using compiler flags:%end% %compiler_flags%
 if not exist build mkdir build
 pushd build
 
-echo ""
+echo.
 echo %bold_white%Running tests%end%
 odin test ../src %compiler_flags%
 set result=%errorlevel%
@@ -35,7 +35,7 @@ if %result% neq 0 (
   exit %result%
 )
 
-echo ""
+echo.
 echo %bold_white%Building:%end% %cd%/build/%bin_name%
 odin build ../src -out:%bin_name% %compiler_flags%
 set result=%errorlevel%
@@ -44,6 +44,7 @@ if %result% neq 0 (
   exit %result%
 )
 
+echo.
 echo %bold_green%OK%end%
 
 popd
