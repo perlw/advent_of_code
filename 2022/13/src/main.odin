@@ -4,6 +4,7 @@ import "core:bytes"
 import "core:fmt"
 import "core:io"
 import "core:os"
+import "core:slice"
 
 Item :: struct {
 	list:   ^List,
@@ -46,11 +47,11 @@ parse_input_file :: proc(filepath: string) -> [dynamic]List {
 					current = &packet
 					current.items = make([dynamic]Item, 0, 10)
 				} else {
-					new_list := new(List)
-					new_list.parent = current
-					new_list.items = make([dynamic]Item, 0, 10)
-					append(&current.items, Item{list = new_list})
-					current = new_list
+					list := new(List)
+					list.parent = current
+					list.items = make([dynamic]Item, 0, 10)
+					append(&current.items, Item{list = list})
+					current = list
 				}
 			case ']':
 				current = current.parent
@@ -183,7 +184,9 @@ task1 :: proc(packets: []List, debug := false) -> int {
 
 		if compare_lists(packet_a, packet_b, 0, debug) == 1 {
 			result += i + 1
-			fmt.printf("%d is okay\n", i + 1)
+			if debug {
+				fmt.printf("%d is okay\n", i + 1)
+			}
 		}
 
 		if debug {
@@ -195,7 +198,62 @@ task1 :: proc(packets: []List, debug := false) -> int {
 }
 
 task2 :: proc(packets: []List, debug := false) -> int {
-	return -1
+	result := 1
+
+	if debug {
+		for packet in packets {
+			print_list(packet.items[:])
+			fmt.printf("\n")
+		}
+	}
+
+	slice.sort_by(packets, proc(a, b: List) -> bool {
+		return compare_lists(a.items[:], b.items[:], 0, false) == 1
+	})
+
+	if debug {
+		fmt.printf("===\n")
+		for packet in packets {
+			print_list(packet.items[:])
+			fmt.printf("\n")
+		}
+	}
+
+	for packet, i in packets {
+		if len(packet.items) == 1 &&
+		   packet.items[0].list != nil &&
+		   len(packet.items[0].list.items) == 1 {
+			item := packet.items[0].list.items[0]
+			if item.number == 2 || item.number == 6 {
+				result *= (i + 1)
+			}
+		}
+	}
+
+	return result
+}
+
+add_task2_values :: proc(packets: ^[dynamic]List) {
+	{
+		outer := List {
+			items = make([dynamic]Item, 0, 1),
+		}
+		inner := new(List)
+		inner.items = make([dynamic]Item, 0, 1)
+		append(&inner.items, Item{number = 2})
+		append(&outer.items, Item{list = inner})
+		append(packets, outer)
+	}
+	{
+		outer := List {
+			items = make([dynamic]Item, 0, 1),
+		}
+		inner := new(List)
+		inner.items = make([dynamic]Item, 0, 1)
+		append(&inner.items, Item{number = 6})
+		append(&outer.items, Item{list = inner})
+		append(packets, outer)
+	}
 }
 
 main :: proc() {
@@ -218,6 +276,7 @@ main :: proc() {
 	result1 := task1(packets[:], debug1)
 	fmt.printf("Task 1 result: %d\n", result1)
 
+	add_task2_values(&packets)
 	result2 := task2(packets[:], debug2)
 	fmt.printf("Task 2 result: %d\n", result2)
 }
