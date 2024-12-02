@@ -7,8 +7,6 @@ main :: proc() {
 	context.logger = log.create_console_logger(ident = "MAIN")
 	defer log.destroy_console_logger(context.logger)
 
-	log.infof("Day %s", os.args[0])
-
 	debug1: bool
 	debug2: bool
 	if len(os.args) > 1 {

@@ -6,7 +6,7 @@ import "core:testing"
 task1_test :: proc(t: ^testing.T) {
 	input := parse_input_file("../input_test.txt")
 	defer free_input(&input)
-	expected: Result1 = 0
+	expected: Result1 = 11
 
 	result := run_task1(input = &input, debug = true)
 	testing.expect_value(t, result, expected)
@@ -16,7 +16,7 @@ task1_test :: proc(t: ^testing.T) {
 task2_test :: proc(t: ^testing.T) {
 	input := parse_input_file("../input_test.txt")
 	defer free_input(&input)
-	expected: Result2 = 0
+	expected: Result2 = 31
 
 	result := run_task2(input = &input, debug = true)
 	testing.expect_value(t, result, expected)
